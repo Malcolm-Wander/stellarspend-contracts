@@ -20,22 +20,40 @@
 #![no_std]
 
 mod analytics;
+mod fees;
 mod types;
+mod validation;
 
 use soroban_sdk::{contract, contractimpl, panic_with_error, Address, Env, Vec};
 
 pub use crate::analytics::{
-    compute_batch_checksum, compute_batch_metrics, compute_category_metrics,
-    find_high_value_transactions, validate_audit_logs, validate_batch,
-    process_refund_batch, compute_refund_metrics, validate_refund_batch,
-    validate_refund_eligibility, create_bundle_result, validate_bundle_transactions,
+    compute_aggregated_analytics, compute_batch_checksum, compute_batch_metrics,
+    compute_category_metrics, compute_monthly_analytics, compute_refund_metrics,
+    compute_user_spending_summary, create_bundle_result, find_high_value_transactions,
+    process_refund_batch, update_monthly_analytics_storage, validate_audit_logs, validate_batch,
+    validate_bundle_transactions, validate_refund_batch, validate_refund_eligibility,
     validate_transaction_for_bundle,
+};
+pub use crate::fees::{
+    calculate_batch_fees, calculate_transaction_fee, deduct_fees, get_current_fee_config,
+    store_fee_config, update_fee_config, validate_fee_config,
 };
 pub use crate::types::{
     AnalyticsEvents, AuditLog, BatchMetrics, BatchStatusUpdateResult, BundleResult,
-    BundledTransaction, CategoryMetrics, DataKey, RatingInput, RatingResult, RatingStatus,
-    StatusUpdateResult, Transaction, TransactionStatus, TransactionStatusUpdate, ValidationResult,
-    RefundRequest, RefundResult, RefundStatus, RefundBatchMetrics, MAX_BATCH_SIZE,
+    BundledTransaction, CategoryMetrics, DataKey, MonthlySpendingAnalytics, RatingInput,
+    RatingResult, RatingStatus, RefundBatchMetrics, RefundRequest, RefundResult, RefundStatus,
+    StatusUpdateResult, Transaction, TransactionStatus, TransactionStatusUpdate,
+    UserSpendingSummary, ValidationError, ValidationResult, MAX_BATCH_SIZE,
+};
+pub use crate::types::{FeeCalculationResult, FeeConfig, FeeDeductionEvent, FeeModel, FeeTier};
+pub use crate::validation::{
+    validate_address, validate_amount, validate_amounts, validate_asset_amount,
+    validate_asset_amounts, validate_asset_type, validate_bundled_transaction,
+    validate_bundled_transactions, validate_different_addresses, validate_percentage_basis_points,
+    validate_rating_input, validate_rating_inputs, validate_refund_request,
+    validate_refund_requests, validate_transaction, validate_transaction_status_update,
+    validate_transaction_status_updates, validate_transactions, validate_user_address,
+    validate_year_month,
 };
 
 /// Error codes for the analytics contract.
@@ -101,18 +119,17 @@ impl TransactionAnalyticsContract {
         env.storage()
             .instance()
             .set(&DataKey::TotalAuditLogs, &0u64);
-        env.storage()
-            .instance()
-            .set(&DataKey::LastBundleId, &0u64);
+        env.storage().instance().set(&DataKey::LastBundleId, &0u64);
         env.storage()
             .instance()
             .set(&DataKey::LastRefundBatchId, &0u64);
         env.storage()
             .instance()
             .set(&DataKey::TotalRefundAmount, &0i128);
-        env.storage()
-            .instance()
-            .set(&DataKey::RefundedTransactions, &soroban_sdk::Map::<u64, bool>::new(&env));
+        env.storage().instance().set(
+            &DataKey::RefundedTransactions,
+            &soroban_sdk::Map::<u64, bool>::new(&env),
+        );
     }
 
     /// Generates batch analytics for multiple transactions.
@@ -145,18 +162,16 @@ impl TransactionAnalyticsContract {
         caller.require_auth();
         Self::require_admin(&env, &caller);
 
-        // Validate batch
-        let tx_count = transactions.len();
-        if tx_count == 0 {
-            panic_with_error!(&env, AnalyticsError::EmptyBatch);
-        }
-        if tx_count > MAX_BATCH_SIZE {
-            panic_with_error!(&env, AnalyticsError::BatchTooLarge);
-        }
-
-        // Validate individual transactions
-        if let Err(_) = validate_batch(&transactions) {
-            panic_with_error!(&env, AnalyticsError::InvalidBatch);
+        // Use new validation layer
+        if let Err(validation_error) = validate_transactions(&transactions) {
+            // Convert validation error to contract error
+            match validation_error {
+                ValidationError::EmptyBatch => panic_with_error!(&env, AnalyticsError::EmptyBatch),
+                ValidationError::BatchTooLarge => {
+                    panic_with_error!(&env, AnalyticsError::BatchTooLarge)
+                }
+                _ => panic_with_error!(&env, AnalyticsError::InvalidBatch),
+            }
         }
 
         for tx in transactions.iter() {
@@ -232,9 +247,19 @@ impl TransactionAnalyticsContract {
         caller.require_auth();
         Self::require_admin(&env, &caller);
 
-        // Validate logs
-        if let Err(_) = validate_audit_logs(&logs) {
-            panic_with_error!(&env, AnalyticsError::InvalidAuditLog);
+        // Validate logs with new validation layer
+        if logs.is_empty() {
+            panic_with_error!(&env, AnalyticsError::EmptyBatch);
+        }
+
+        if logs.len() > MAX_BATCH_SIZE as usize {
+            panic_with_error!(&env, AnalyticsError::BatchTooLarge);
+        }
+
+        for log in logs.iter() {
+            if log.timestamp == 0 {
+                panic_with_error!(&env, AnalyticsError::InvalidAuditLog);
+            }
         }
 
         // Get current total audit logs
@@ -324,17 +349,21 @@ impl TransactionAnalyticsContract {
         caller.require_auth();
         Self::require_admin(&env, &caller);
 
-        let count = updates.len();
-        if count == 0 {
-            panic_with_error!(&env, AnalyticsError::EmptyBatch);
-        }
-        if count > MAX_BATCH_SIZE {
-            panic_with_error!(&env, AnalyticsError::BatchTooLarge);
+        // Use new validation layer
+        if let Err(validation_error) = validate_transaction_status_updates(&updates) {
+            match validation_error {
+                ValidationError::EmptyBatch => panic_with_error!(&env, AnalyticsError::EmptyBatch),
+                ValidationError::BatchTooLarge => {
+                    panic_with_error!(&env, AnalyticsError::BatchTooLarge)
+                }
+                _ => panic_with_error!(&env, AnalyticsError::InvalidBatch),
+            }
         }
 
         let mut results: Vec<StatusUpdateResult> = Vec::new(&env);
         let mut successful: u32 = 0;
         let mut failed: u32 = 0;
+        let count = updates.len() as u32;
 
         for update in updates.iter() {
             let known = env
@@ -383,19 +412,18 @@ impl TransactionAnalyticsContract {
         }
     }
 
-    pub fn submit_ratings(
-        env: Env,
-        user: Address,
-        ratings: Vec<RatingInput>,
-    ) -> Vec<RatingResult> {
+    pub fn submit_ratings(env: Env, user: Address, ratings: Vec<RatingInput>) -> Vec<RatingResult> {
         user.require_auth();
 
-        let count = ratings.len();
-        if count == 0 {
-            panic_with_error!(&env, AnalyticsError::EmptyBatch);
-        }
-        if count > MAX_BATCH_SIZE {
-            panic_with_error!(&env, AnalyticsError::BatchTooLarge);
+        // Use new validation layer
+        if let Err(validation_error) = validate_rating_inputs(&ratings) {
+            match validation_error {
+                ValidationError::EmptyBatch => panic_with_error!(&env, AnalyticsError::EmptyBatch),
+                ValidationError::BatchTooLarge => {
+                    panic_with_error!(&env, AnalyticsError::BatchTooLarge)
+                }
+                _ => panic_with_error!(&env, AnalyticsError::InvalidBatch),
+            }
         }
 
         let mut results: Vec<RatingResult> = Vec::new(&env);
@@ -490,13 +518,15 @@ impl TransactionAnalyticsContract {
         caller.require_auth();
         Self::require_admin(&env, &caller);
 
-        // Validate bundle size
-        let tx_count = bundled_transactions.len() as u32;
-        if tx_count == 0 {
-            panic_with_error!(&env, AnalyticsError::EmptyBundle);
-        }
-        if tx_count > MAX_BATCH_SIZE {
-            panic_with_error!(&env, AnalyticsError::BundleTooLarge);
+        // Use new validation layer
+        if let Err(validation_error) = validate_bundled_transactions(&bundled_transactions) {
+            match validation_error {
+                ValidationError::EmptyBatch => panic_with_error!(&env, AnalyticsError::EmptyBundle),
+                ValidationError::BatchTooLarge => {
+                    panic_with_error!(&env, AnalyticsError::BundleTooLarge)
+                }
+                _ => panic_with_error!(&env, AnalyticsError::InvalidBatch),
+            }
         }
 
         // Get next bundle ID
@@ -611,17 +641,17 @@ impl TransactionAnalyticsContract {
         caller.require_auth();
         Self::require_admin(&env, &caller);
 
-        // Validate refund batch
-        let request_count = refund_requests.len() as u32;
-        if request_count == 0 {
-            panic_with_error!(&env, AnalyticsError::EmptyRefundBatch);
-        }
-        if request_count > MAX_BATCH_SIZE {
-            panic_with_error!(&env, AnalyticsError::RefundBatchTooLarge);
-        }
-
-        if let Err(_) = validate_refund_batch(&env, &refund_requests) {
-            panic_with_error!(&env, AnalyticsError::InvalidRefundBatch);
+        // Use new validation layer
+        if let Err(validation_error) = validate_refund_requests(&refund_requests) {
+            match validation_error {
+                ValidationError::EmptyBatch => {
+                    panic_with_error!(&env, AnalyticsError::EmptyRefundBatch)
+                }
+                ValidationError::BatchTooLarge => {
+                    panic_with_error!(&env, AnalyticsError::RefundBatchTooLarge)
+                }
+                _ => panic_with_error!(&env, AnalyticsError::InvalidRefundBatch),
+            }
         }
 
         // Get next refund batch ID
@@ -653,10 +683,15 @@ impl TransactionAnalyticsContract {
         // Emit individual refund events
         for result in refund_results.iter() {
             AnalyticsEvents::refund_processed(&env, refund_batch_id, &result);
-            
+
             if !result.success {
                 if let Some(error_msg) = &result.error_message {
-                    AnalyticsEvents::refund_error(&env, refund_batch_id, result.tx_id, error_msg.clone());
+                    AnalyticsEvents::refund_error(
+                        &env,
+                        refund_batch_id,
+                        result.tx_id,
+                        error_msg.clone(),
+                    );
                 }
             }
         }
@@ -672,10 +707,13 @@ impl TransactionAnalyticsContract {
             .get(&DataKey::TotalRefundAmount)
             .unwrap_or(0);
 
-        env.storage().instance().set(&DataKey::LastRefundBatchId, &refund_batch_id);
         env.storage()
             .instance()
-            .set(&DataKey::TotalRefundAmount, &(total_refunded + metrics.total_refunded_amount));
+            .set(&DataKey::LastRefundBatchId, &refund_batch_id);
+        env.storage().instance().set(
+            &DataKey::TotalRefundAmount,
+            &(total_refunded + metrics.total_refunded_amount),
+        );
         env.storage()
             .persistent()
             .set(&DataKey::RefundBatchMetrics(refund_batch_id), &metrics);
@@ -697,8 +735,17 @@ impl TransactionAnalyticsContract {
         refund_requests: Vec<RefundRequest>,
         transaction_lookup: soroban_sdk::Map<u64, Transaction>,
     ) -> RefundBatchMetrics {
-        if let Err(_) = validate_refund_batch(&env, &refund_requests) {
-            panic_with_error!(&env, AnalyticsError::InvalidRefundBatch);
+        // Use new validation layer
+        if let Err(validation_error) = validate_refund_requests(&refund_requests) {
+            match validation_error {
+                ValidationError::EmptyBatch => {
+                    panic_with_error!(&env, AnalyticsError::EmptyRefundBatch)
+                }
+                ValidationError::BatchTooLarge => {
+                    panic_with_error!(&env, AnalyticsError::RefundBatchTooLarge)
+                }
+                _ => panic_with_error!(&env, AnalyticsError::InvalidRefundBatch),
+            }
         }
 
         let refunded_txs: soroban_sdk::Map<u64, bool> = env
@@ -749,8 +796,207 @@ impl TransactionAnalyticsContract {
             .instance()
             .get(&DataKey::RefundedTransactions)
             .unwrap_or_else(|| soroban_sdk::Map::new(&env));
-        
+
         refunded_txs.contains_key(tx_id)
+    }
+
+    /// Updates monthly spending analytics for a user.
+    ///
+    /// This function calculates and stores monthly spending patterns for a specific user.
+    ///
+    /// # Arguments
+    /// * `env` - The contract environment
+    /// * `caller` - The address calling this function (must be admin)
+    /// * `user` - The user address to analyze
+    /// * `transactions` - Vector of transactions to analyze
+    /// * `year` - The year to analyze
+    /// * `month` - The month to analyze
+    pub fn update_monthly_spending_analytics(
+        env: Env,
+        caller: Address,
+        user: Address,
+        transactions: Vec<Transaction>,
+        year: u32,
+        month: u32,
+    ) -> MonthlySpendingAnalytics {
+        caller.require_auth();
+        Self::require_admin(&env, &caller);
+
+        // Use new validation layer
+        if let Err(validation_error) = validate_user_address(&env, &user) {
+            match validation_error {
+                ValidationError::InvalidAddress => {
+                    panic_with_error!(&env, AnalyticsError::Unauthorized)
+                }
+                _ => panic_with_error!(&env, AnalyticsError::InvalidBatch),
+            }
+        }
+
+        if let Err(validation_error) = validate_year_month(year, month) {
+            match validation_error {
+                ValidationError::InvalidYear => {
+                    panic_with_error!(&env, AnalyticsError::InvalidBatch)
+                }
+                ValidationError::InvalidMonth => {
+                    panic_with_error!(&env, AnalyticsError::InvalidBatch)
+                }
+                _ => panic_with_error!(&env, AnalyticsError::InvalidBatch),
+            }
+        }
+
+        if let Err(validation_error) = validate_transactions(&transactions) {
+            match validation_error {
+                ValidationError::EmptyBatch => panic_with_error!(&env, AnalyticsError::EmptyBatch),
+                ValidationError::BatchTooLarge => {
+                    panic_with_error!(&env, AnalyticsError::BatchTooLarge)
+                }
+                _ => panic_with_error!(&env, AnalyticsError::InvalidBatch),
+            }
+        }
+
+        // Compute monthly analytics
+        let analytics = compute_monthly_analytics(&env, &user, &transactions, year, month);
+
+        // Update storage
+        update_monthly_analytics_storage(&env, &analytics);
+
+        // Emit analytics update event
+        AnalyticsEvents::analytics_updated(&env, &user, year, month, &analytics);
+
+        analytics
+    }
+
+    /// Retrieves monthly spending analytics for a user.
+    ///
+    /// # Arguments
+    /// * `env` - The contract environment
+    /// * `user` - The user address
+    /// * `year` - The year of the analytics
+    /// * `month` - The month of the analytics
+    ///
+    /// # Returns
+    /// * `Option<MonthlySpendingAnalytics>` - The stored analytics if found
+    pub fn get_monthly_analytics(
+        env: Env,
+        user: Address,
+        year: u32,
+        month: u32,
+    ) -> Option<MonthlySpendingAnalytics> {
+        let key = DataKey::MonthlyAnalytics(year, month, user);
+        env.storage().persistent().get(&key)
+    }
+
+    /// Gets user spending summary across all tracked periods.
+    ///
+    /// # Arguments
+    /// * `env` - The contract environment
+    /// * `user` - The user address
+    ///
+    /// # Returns
+    /// * `Option<UserSpendingSummary>` - The user spending summary if found
+    pub fn get_user_spending_summary(env: Env, user: Address) -> Option<UserSpendingSummary> {
+        let key = DataKey::UserSpendingSummary(user);
+        env.storage().persistent().get(&key)
+    }
+
+    /// Gets the total number of tracked users.
+    pub fn get_total_tracked_users(env: Env) -> u64 {
+        env.storage()
+            .instance()
+            .get(&DataKey::TotalTrackedUsers)
+            .unwrap_or(0)
+    }
+
+    /// Gets the timestamp of the last analytics update.
+    pub fn get_last_analytics_update(env: Env) -> u64 {
+        env.storage()
+            .instance()
+            .get(&DataKey::LastAnalyticsUpdate)
+            .unwrap_or(0)
+    }
+
+    /// Updates the fee configuration.
+    ///
+    /// # Arguments
+    /// * `env` - The contract environment
+    /// * `admin` - The admin address (must be authorized)
+    /// * `new_config` - The new fee configuration
+    pub fn update_fee_config(env: Env, admin: Address, new_config: FeeConfig) {
+        admin.require_auth();
+        Self::require_admin(&env, &admin);
+
+        // Validate the new configuration
+        if let Err(validation_error) = validate_fee_config(&new_config) {
+            match validation_error {
+                ValidationError::InvalidPercentage => {
+                    panic_with_error!(&env, AnalyticsError::InvalidBatch)
+                }
+                ValidationError::InvalidAmount => {
+                    panic_with_error!(&env, AnalyticsError::InvalidAmount)
+                }
+                _ => panic_with_error!(&env, AnalyticsError::InvalidBatch),
+            }
+        }
+
+        // Store the new configuration
+        store_fee_config(&env, &new_config).expect("Failed to store fee configuration");
+    }
+
+    /// Gets the current fee configuration.
+    ///
+    /// # Arguments
+    /// * `env` - The contract environment
+    ///
+    /// # Returns
+    /// * `Option<FeeConfig>` - The current fee configuration if set
+    pub fn get_current_fee_config(env: Env) -> Option<FeeConfig> {
+        get_current_fee_config(&env)
+    }
+
+    /// Calculates fees for a single transaction.
+    ///
+    /// # Arguments
+    /// * `env` - The contract environment
+    /// * `amount` - The transaction amount
+    ///
+    /// # Returns
+    /// * `FeeCalculationResult` - The fee calculation result
+    pub fn calculate_transaction_fee(env: Env, amount: i128) -> FeeCalculationResult {
+        let config = get_current_fee_config(&env).unwrap_or_else(|| {
+            // Return a default fee configuration if none is set
+            FeeConfig {
+                fee_model: FeeModel::Percentage(10), // 0.1% default
+                min_fee: Some(1),
+                max_fee: None,
+                enabled: true,
+                description: Some(Symbol::new(&env, "Default")),
+            }
+        });
+
+        calculate_transaction_fee(&env, amount, &config)
+    }
+
+    /// Calculates fees for a batch of transactions.
+    ///
+    /// # Arguments
+    /// * `env` - The contract environment
+    /// * `amounts` - Vector of transaction amounts
+    ///
+    /// # Returns
+    /// * `Vec<FeeCalculationResult>` - Vector of fee calculation results
+    pub fn calculate_batch_fees(env: Env, amounts: Vec<i128>) -> Vec<FeeCalculationResult> {
+        let config = get_current_fee_config(&env).unwrap_or_else(|| {
+            // Return a default fee configuration if none is set
+            FeeConfig {
+                fee_model: FeeModel::Percentage(10), // 0.1% default
+                min_fee: Some(1),
+                max_fee: None,
+                enabled: true,
+                description: Some(Symbol::new(&env, "Default")),
+            }
+        });
+
+        calculate_batch_fees(&env, &amounts.into_iter().collect::<Vec<_>>(), &config)
     }
 
     // Internal helper to verify admin

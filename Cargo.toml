@@ -28,6 +28,19 @@ members = [
     "contracts/category-analytics",
 ]
 
+[package]
+name = "stellarspend-contracts-tests"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }
+
+[[test]]
+name = "memo_tests"
+path = "tests/memo_tests.rs"
+
 [workspace.package]
 version = "0.1.0"
 edition = "2021"

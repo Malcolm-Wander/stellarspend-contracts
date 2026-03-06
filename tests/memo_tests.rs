@@ -2,7 +2,7 @@
 
 use soroban_sdk::{
     testutils::{Address as _, Ledger, LedgerInfo},
-    Address, Bytes, Env, Symbol, String,
+    Address, Bytes, Env, String, Symbol,
 };
 
 #[path = "../contracts/memo.rs"]

@@ -203,8 +203,8 @@ pub enum DataKey {
 
 /// Error codes for goal validation and creation.
 pub mod ErrorCode {
-        /// Milestone not yet achieved (progress too low)
-        pub const MILESTONE_NOT_YET_ACHIEVED: u32 = 10;
+    /// Milestone not yet achieved (progress too low)
+    pub const MILESTONE_NOT_YET_ACHIEVED: u32 = 10;
     /// Invalid goal amount (too low or negative)
     pub const INVALID_AMOUNT: u32 = 0;
     /// Invalid deadline (in the past or too far in future)

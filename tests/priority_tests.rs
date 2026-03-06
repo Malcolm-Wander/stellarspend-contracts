@@ -7,7 +7,7 @@ use soroban_sdk::{
 #[path = "../contracts/priority.rs"]
 mod priority;
 
-use priority::{PriorityContract, PriorityContractClient, PendingItem};
+use priority::{PendingItem, PriorityContract, PriorityContractClient};
 
 fn setup() -> (Env, Address, PriorityContractClient<'static>) {
     let env = Env::default();

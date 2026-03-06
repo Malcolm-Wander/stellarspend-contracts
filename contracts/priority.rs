@@ -1,4 +1,7 @@
-use soroban_sdk::{contract, contractimpl, contracttype, contracterror, panic_with_error, symbol_short, Address, Env, Symbol, Vec};
+use soroban_sdk::{
+    contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, Address,
+    Env, Symbol, Vec,
+};
 
 #[derive(Clone)]
 #[contracttype]
@@ -36,15 +39,27 @@ pub struct PriorityEvents;
 
 impl PriorityEvents {
     pub fn enqueued(env: &Env, item: &PendingItem) {
-        let topics = (symbol_short!("priority"), symbol_short!("enqueued"), item.id);
-        env.events()
-            .publish(topics, (item.payload.clone(), item.priority, item.created_at));
+        let topics = (
+            symbol_short!("priority"),
+            symbol_short!("enqueued"),
+            item.id,
+        );
+        env.events().publish(
+            topics,
+            (item.payload.clone(), item.priority, item.created_at),
+        );
     }
 
     pub fn dequeued(env: &Env, item: &PendingItem) {
-        let topics = (symbol_short!("priority"), symbol_short!("dequeued"), item.id);
-        env.events()
-            .publish(topics, (item.payload.clone(), item.priority, item.created_at));
+        let topics = (
+            symbol_short!("priority"),
+            symbol_short!("dequeued"),
+            item.id,
+        );
+        env.events().publish(
+            topics,
+            (item.payload.clone(), item.priority, item.created_at),
+        );
     }
 }
 
@@ -61,9 +76,15 @@ impl PriorityContract {
         }
         env.storage().instance().set(&DataKey::Admin, &admin);
         env.storage().instance().set(&DataKey::NextId, &0u64);
-        env.storage().instance().set(&DataKey::HighQueue, &Vec::<u64>::new(&env));
-        env.storage().instance().set(&DataKey::MedQueue, &Vec::<u64>::new(&env));
-        env.storage().instance().set(&DataKey::LowQueue, &Vec::<u64>::new(&env));
+        env.storage()
+            .instance()
+            .set(&DataKey::HighQueue, &Vec::<u64>::new(&env));
+        env.storage()
+            .instance()
+            .set(&DataKey::MedQueue, &Vec::<u64>::new(&env));
+        env.storage()
+            .instance()
+            .set(&DataKey::LowQueue, &Vec::<u64>::new(&env));
     }
 
     pub fn get_admin(env: Env) -> Address {
@@ -140,24 +161,36 @@ impl PriorityContract {
     }
 
     fn push_queue(env: &Env, key: DataKey, id: u64) {
-        let mut q: Vec<u64> = env.storage().instance().get(&key).unwrap_or_else(|| Vec::new(env));
+        let mut q: Vec<u64> = env
+            .storage()
+            .instance()
+            .get(&key)
+            .unwrap_or_else(|| Vec::new(env));
         q.push_back(&id);
         env.storage().instance().set(&key, &q);
     }
 
     fn pop_front(env: &Env, key: DataKey) -> Option<u64> {
-        let q: Vec<u64> = env.storage().instance().get(&key).unwrap_or_else(|| Vec::new(env));
+        let q: Vec<u64> = env
+            .storage()
+            .instance()
+            .get(&key)
+            .unwrap_or_else(|| Vec::new(env));
         let len = q.len();
         if len == 0 {
             return None;
         }
 
-        let id = q.get(0).unwrap_or_else(|| panic_with_error!(env, PriorityError::EmptyQueue));
+        let id = q
+            .get(0)
+            .unwrap_or_else(|| panic_with_error!(env, PriorityError::EmptyQueue));
 
         let mut new_q = Vec::new(env);
         let mut i = 1u32;
         while (i as usize) < len as usize {
-            let v = q.get(i as usize).unwrap_or_else(|| panic_with_error!(env, PriorityError::EmptyQueue));
+            let v = q
+                .get(i as usize)
+                .unwrap_or_else(|| panic_with_error!(env, PriorityError::EmptyQueue));
             new_q.push_back(&v);
             i += 1;
         }
@@ -181,19 +214,39 @@ impl PriorityContract {
 
     fn find_starved(env: &Env, now: u64) -> Option<u64> {
         // check med then low for starved items
-        let med_q: Vec<u64> = env.storage().instance().get(&DataKey::MedQueue).unwrap_or_else(|| Vec::new(env));
+        let med_q: Vec<u64> = env
+            .storage()
+            .instance()
+            .get(&DataKey::MedQueue)
+            .unwrap_or_else(|| Vec::new(env));
         if med_q.len() > 0 {
-            let mid = med_q.get(0).unwrap_or_else(|| panic_with_error!(env, PriorityError::EmptyQueue));
-            let item: PendingItem = env.storage().instance().get(&DataKey::PendingItem(mid)).unwrap_or_else(|| panic_with_error!(env, PriorityError::EmptyQueue));
+            let mid = med_q
+                .get(0)
+                .unwrap_or_else(|| panic_with_error!(env, PriorityError::EmptyQueue));
+            let item: PendingItem = env
+                .storage()
+                .instance()
+                .get(&DataKey::PendingItem(mid))
+                .unwrap_or_else(|| panic_with_error!(env, PriorityError::EmptyQueue));
             if now.saturating_sub(item.created_at) > STARVATION_THRESHOLD {
                 return Some(mid);
             }
         }
 
-        let low_q: Vec<u64> = env.storage().instance().get(&DataKey::LowQueue).unwrap_or_else(|| Vec::new(env));
+        let low_q: Vec<u64> = env
+            .storage()
+            .instance()
+            .get(&DataKey::LowQueue)
+            .unwrap_or_else(|| Vec::new(env));
         if low_q.len() > 0 {
-            let lid = low_q.get(0).unwrap_or_else(|| panic_with_error!(env, PriorityError::EmptyQueue));
-            let item: PendingItem = env.storage().instance().get(&DataKey::PendingItem(lid)).unwrap_or_else(|| panic_with_error!(env, PriorityError::EmptyQueue));
+            let lid = low_q
+                .get(0)
+                .unwrap_or_else(|| panic_with_error!(env, PriorityError::EmptyQueue));
+            let item: PendingItem = env
+                .storage()
+                .instance()
+                .get(&DataKey::PendingItem(lid))
+                .unwrap_or_else(|| panic_with_error!(env, PriorityError::EmptyQueue));
             if now.saturating_sub(item.created_at) > STARVATION_THRESHOLD {
                 return Some(lid);
             }

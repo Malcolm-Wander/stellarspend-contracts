@@ -1,7 +1,6 @@
 #![no_std]
 
-use soroban_sdk::{contract, contractimpl, contracttype,symbol_short, Address, BytesN, Env};
-
+use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, BytesN, Env};
 
 #[contracttype]
 #[derive(Clone)]
@@ -41,19 +40,20 @@ impl UpgradeableContract {
     }
 
     pub fn upgrade(e: Env, new_wasm_hash: BytesN<32>) {
-    let admin: Address = e.storage().instance().get(&DataKey::NewAdmin).unwrap();
-    admin.require_auth();
+        let admin: Address = e.storage().instance().get(&DataKey::NewAdmin).unwrap();
+        admin.require_auth();
 
-    // Validate storage layout before upgrading
-    if !e.storage().instance().has(&DataKey::Admin) {
-        panic!("storage layout invalid: Admin key missing");
-    }
-    if !e.storage().instance().has(&DataKey::NewAdmin) {
-        panic!("storage layout invalid: NewAdmin key missing");
-    }
+        // Validate storage layout before upgrading
+        if !e.storage().instance().has(&DataKey::Admin) {
+            panic!("storage layout invalid: Admin key missing");
+        }
+        if !e.storage().instance().has(&DataKey::NewAdmin) {
+            panic!("storage layout invalid: NewAdmin key missing");
+        }
 
-    e.deployer().update_current_contract_wasm(new_wasm_hash.clone());
-    e.events()
-        .publish((symbol_short!("upgrade"),), new_wasm_hash);
-}
+        e.deployer()
+            .update_current_contract_wasm(new_wasm_hash.clone());
+        e.events()
+            .publish((symbol_short!("upgrade"),), new_wasm_hash);
+    }
 }

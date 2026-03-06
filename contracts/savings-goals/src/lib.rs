@@ -61,127 +61,166 @@ pub struct SavingsGoalsContract;
 
 #[contractimpl]
 impl SavingsGoalsContract {
-        /// Batch mark milestones for multiple goals and emit milestone events.
-        ///
-        /// # Arguments
-        /// * `env` - The contract environment
-        /// * `caller` - The address calling this function (must be goal owner)
-        /// * `requests` - Vector of milestone achievement requests
-        ///
-        /// # Returns
-        /// * `BatchMilestoneResult` - Result containing milestone results and metrics
-        pub fn batch_mark_milestones(
-            env: Env,
-            caller: Address,
-            requests: Vec<MilestoneAchievementRequest>,
-        ) -> BatchMilestoneResult {
-            caller.require_auth();
-            let mut results: Vec<MilestoneResult> = Vec::new(&env);
-            let mut successful: u32 = 0;
-            let mut failed: u32 = 0;
-            let batch_id: u64 = env
-                .storage()
-                .instance()
-                .get(&DataKey::LastBatchId)
-                .unwrap_or(0)
-                + 1;
-            let mut total_percentage_points: u32 = 0;
-            let mut processed_at = env.ledger().sequence() as u64;
-            // Validate batch size
-            let request_count = requests.len();
-            if request_count == 0 {
-                panic_with_error!(&env, SavingsGoalError::EmptyBatch);
-            }
-            if request_count > MAX_BATCH_SIZE {
-                panic_with_error!(&env, SavingsGoalError::BatchTooLarge);
-            }
-            let mut last_milestone_id: u64 = env
-                .storage()
-                .instance()
-                .get(&DataKey::LastMilestoneId)
-                .unwrap_or(0);
-            for req in requests.iter() {
-                let goal: Option<SavingsGoal> = env.storage().persistent().get(&DataKey::Goal(req.goal_id));
-                if let Some(goal) = goal {
-                    if goal.user != caller {
-                        results.push_back(MilestoneResult::Failure(req.goal_id, ErrorCode::UNAUTHORIZED_USER));
-                        failed += 1;
-                        continue;
-                    }
-                    let valid_percents = [25u32, 50, 75, 100];
-                    if !valid_percents.contains(&req.milestone_percentage) {
-                        results.push_back(MilestoneResult::Failure(req.goal_id, ErrorCode::INVALID_MILESTONE_PERCENTAGE));
-                        failed += 1;
-                        continue;
-                    }
-                    let mut triggered: Vec<u32> = env.storage().persistent().get(&DataKey::GoalMilestonesPercent(req.goal_id)).unwrap_or(Vec::new(&env));
-                    if triggered.contains(&req.milestone_percentage) {
-                        results.push_back(MilestoneResult::Failure(req.goal_id, ErrorCode::MILESTONE_ALREADY_ACHIEVED));
-                        failed += 1;
-                        continue;
-                    }
-                    let progress = if goal.target_amount > 0 {
-                        (goal.current_amount * 100 / goal.target_amount) as u32
-                    } else {
-                        0
-                    };
-                    if progress < req.milestone_percentage {
-                        results.push_back(MilestoneResult::Failure(req.goal_id, ErrorCode::MILESTONE_NOT_YET_ACHIEVED));
-                        failed += 1;
-                        continue;
-                    }
-                    triggered.push_back(req.milestone_percentage);
-                    env.storage().persistent().set(&DataKey::GoalMilestonesPercent(req.goal_id), &triggered);
-                    GoalEvents::milestone_achieved_percent(&env, req.goal_id, req.milestone_percentage);
-                    // Store MilestoneAchievement and update milestone IDs
-                    last_milestone_id += 1;
-                    let achievement = MilestoneAchievement {
-                        milestone_id: last_milestone_id,
-                        goal_id: req.goal_id,
-                        user: caller.clone(),
-                        milestone_percentage: req.milestone_percentage,
-                        goal_amount_at_achievement: goal.current_amount,
-                        achieved_at: req.achieved_at,
-                    };
-                    env.storage().persistent().set(&DataKey::Milestone(last_milestone_id), &achievement);
-                    // Update goal's milestone ID list
-                    let mut milestone_ids: Vec<u64> = env.storage().persistent().get(&DataKey::GoalMilestones(req.goal_id)).unwrap_or(Vec::new(&env));
-                    milestone_ids.push_back(last_milestone_id);
-                    env.storage().persistent().set(&DataKey::GoalMilestones(req.goal_id), &milestone_ids);
-                    // Update last milestone ID and total milestones achieved
-                    env.storage().instance().set(&DataKey::LastMilestoneId, &last_milestone_id);
-                    let total_achieved = env.storage().instance().get(&DataKey::TotalMilestonesAchieved).unwrap_or(0u64) + 1;
-                    env.storage().instance().set(&DataKey::TotalMilestonesAchieved, &total_achieved);
-                    results.push_back(MilestoneResult::Success(achievement));
-                    total_percentage_points += req.milestone_percentage;
-                    successful += 1;
-                } else {
-                    results.push_back(MilestoneResult::Failure(req.goal_id, ErrorCode::GOAL_NOT_FOUND));
+    /// Batch mark milestones for multiple goals and emit milestone events.
+    ///
+    /// # Arguments
+    /// * `env` - The contract environment
+    /// * `caller` - The address calling this function (must be goal owner)
+    /// * `requests` - Vector of milestone achievement requests
+    ///
+    /// # Returns
+    /// * `BatchMilestoneResult` - Result containing milestone results and metrics
+    pub fn batch_mark_milestones(
+        env: Env,
+        caller: Address,
+        requests: Vec<MilestoneAchievementRequest>,
+    ) -> BatchMilestoneResult {
+        caller.require_auth();
+        let mut results: Vec<MilestoneResult> = Vec::new(&env);
+        let mut successful: u32 = 0;
+        let mut failed: u32 = 0;
+        let batch_id: u64 = env
+            .storage()
+            .instance()
+            .get(&DataKey::LastBatchId)
+            .unwrap_or(0)
+            + 1;
+        let mut total_percentage_points: u32 = 0;
+        let mut processed_at = env.ledger().sequence() as u64;
+        // Validate batch size
+        let request_count = requests.len();
+        if request_count == 0 {
+            panic_with_error!(&env, SavingsGoalError::EmptyBatch);
+        }
+        if request_count > MAX_BATCH_SIZE {
+            panic_with_error!(&env, SavingsGoalError::BatchTooLarge);
+        }
+        let mut last_milestone_id: u64 = env
+            .storage()
+            .instance()
+            .get(&DataKey::LastMilestoneId)
+            .unwrap_or(0);
+        for req in requests.iter() {
+            let goal: Option<SavingsGoal> =
+                env.storage().persistent().get(&DataKey::Goal(req.goal_id));
+            if let Some(goal) = goal {
+                if goal.user != caller {
+                    results.push_back(MilestoneResult::Failure(
+                        req.goal_id,
+                        ErrorCode::UNAUTHORIZED_USER,
+                    ));
                     failed += 1;
+                    continue;
                 }
-            }
-            let avg_percentage = if successful > 0 {
-                total_percentage_points / successful
+                let valid_percents = [25u32, 50, 75, 100];
+                if !valid_percents.contains(&req.milestone_percentage) {
+                    results.push_back(MilestoneResult::Failure(
+                        req.goal_id,
+                        ErrorCode::INVALID_MILESTONE_PERCENTAGE,
+                    ));
+                    failed += 1;
+                    continue;
+                }
+                let mut triggered: Vec<u32> = env
+                    .storage()
+                    .persistent()
+                    .get(&DataKey::GoalMilestonesPercent(req.goal_id))
+                    .unwrap_or(Vec::new(&env));
+                if triggered.contains(&req.milestone_percentage) {
+                    results.push_back(MilestoneResult::Failure(
+                        req.goal_id,
+                        ErrorCode::MILESTONE_ALREADY_ACHIEVED,
+                    ));
+                    failed += 1;
+                    continue;
+                }
+                let progress = if goal.target_amount > 0 {
+                    (goal.current_amount * 100 / goal.target_amount) as u32
+                } else {
+                    0
+                };
+                if progress < req.milestone_percentage {
+                    results.push_back(MilestoneResult::Failure(
+                        req.goal_id,
+                        ErrorCode::MILESTONE_NOT_YET_ACHIEVED,
+                    ));
+                    failed += 1;
+                    continue;
+                }
+                triggered.push_back(req.milestone_percentage);
+                env.storage()
+                    .persistent()
+                    .set(&DataKey::GoalMilestonesPercent(req.goal_id), &triggered);
+                GoalEvents::milestone_achieved_percent(&env, req.goal_id, req.milestone_percentage);
+                // Store MilestoneAchievement and update milestone IDs
+                last_milestone_id += 1;
+                let achievement = MilestoneAchievement {
+                    milestone_id: last_milestone_id,
+                    goal_id: req.goal_id,
+                    user: caller.clone(),
+                    milestone_percentage: req.milestone_percentage,
+                    goal_amount_at_achievement: goal.current_amount,
+                    achieved_at: req.achieved_at,
+                };
+                env.storage()
+                    .persistent()
+                    .set(&DataKey::Milestone(last_milestone_id), &achievement);
+                // Update goal's milestone ID list
+                let mut milestone_ids: Vec<u64> = env
+                    .storage()
+                    .persistent()
+                    .get(&DataKey::GoalMilestones(req.goal_id))
+                    .unwrap_or(Vec::new(&env));
+                milestone_ids.push_back(last_milestone_id);
+                env.storage()
+                    .persistent()
+                    .set(&DataKey::GoalMilestones(req.goal_id), &milestone_ids);
+                // Update last milestone ID and total milestones achieved
+                env.storage()
+                    .instance()
+                    .set(&DataKey::LastMilestoneId, &last_milestone_id);
+                let total_achieved = env
+                    .storage()
+                    .instance()
+                    .get(&DataKey::TotalMilestonesAchieved)
+                    .unwrap_or(0u64)
+                    + 1;
+                env.storage()
+                    .instance()
+                    .set(&DataKey::TotalMilestonesAchieved, &total_achieved);
+                results.push_back(MilestoneResult::Success(achievement));
+                total_percentage_points += req.milestone_percentage;
+                successful += 1;
             } else {
-                0
-            };
-            let metrics = BatchMilestoneMetrics {
-                total_requests: requests.len(),
-                successful_milestones: successful,
-                failed_milestones: failed,
-                total_percentage_points,
-                avg_percentage,
-                processed_at,
-            };
-            BatchMilestoneResult {
-                batch_id,
-                total_requests: requests.len(),
-                successful,
-                failed,
-                results,
-                metrics,
+                results.push_back(MilestoneResult::Failure(
+                    req.goal_id,
+                    ErrorCode::GOAL_NOT_FOUND,
+                ));
+                failed += 1;
             }
         }
+        let avg_percentage = if successful > 0 {
+            total_percentage_points / successful
+        } else {
+            0
+        };
+        let metrics = BatchMilestoneMetrics {
+            total_requests: requests.len(),
+            successful_milestones: successful,
+            failed_milestones: failed,
+            total_percentage_points,
+            avg_percentage,
+            processed_at,
+        };
+        BatchMilestoneResult {
+            batch_id,
+            total_requests: requests.len(),
+            successful,
+            failed,
+            results,
+            metrics,
+        }
+    }
     /// Initializes the contract with an admin address.
     ///
     /// # Arguments
@@ -584,7 +623,11 @@ impl SavingsGoalsContract {
         let contract_id = env.current_contract_address();
         env.as_contract(&contract_id, || {
             let key = crate::types::DataKey::Goal(goal_id);
-            if let Some(mut goal) = env.storage().persistent().get::<crate::types::DataKey, crate::types::SavingsGoal>(&key) {
+            if let Some(mut goal) = env
+                .storage()
+                .persistent()
+                .get::<crate::types::DataKey, crate::types::SavingsGoal>(&key)
+            {
                 goal.current_amount = amount;
                 env.storage().persistent().set(&key, &goal);
             }

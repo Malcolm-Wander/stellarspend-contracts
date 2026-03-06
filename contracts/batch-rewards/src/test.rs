@@ -318,19 +318,28 @@ fn test_distribute_rewards_events_emitted() {
 
     // Check for batch_started event
     let has_batch_started = events.iter().any(|event| {
-        event.1.iter().any(|topic: &soroban_sdk::Val| topic.to_string().contains("batch"))
+        event
+            .1
+            .iter()
+            .any(|topic: &soroban_sdk::Val| topic.to_string().contains("batch"))
     });
     assert!(has_batch_started, "batch_started event not found");
 
     // Check for reward_success event
     let has_reward_success = events.iter().any(|event| {
-        event.1.iter().any(|topic: &soroban_sdk::Val| topic.to_string().contains("success"))
+        event
+            .1
+            .iter()
+            .any(|topic: &soroban_sdk::Val| topic.to_string().contains("success"))
     });
     assert!(has_reward_success, "reward_success event not found");
 
     // Check for batch_completed event
     let has_batch_completed = events.iter().any(|event| {
-        event.1.iter().any(|topic: &soroban_sdk::Val| topic.to_string().contains("completed"))
+        event
+            .1
+            .iter()
+            .any(|topic: &soroban_sdk::Val| topic.to_string().contains("completed"))
     });
     assert!(has_batch_completed, "batch_completed event not found");
 }
@@ -380,7 +389,10 @@ fn test_distribute_rewards_events_on_failure() {
 
     // Check for failure event
     let has_failure_event = events.iter().any(|event| {
-        event.1.iter().any(|topic: &soroban_sdk::Val| topic.to_string().contains("failure"))
+        event
+            .1
+            .iter()
+            .any(|topic: &soroban_sdk::Val| topic.to_string().contains("failure"))
     });
     assert!(has_failure_event, "reward_failure event not found");
 }

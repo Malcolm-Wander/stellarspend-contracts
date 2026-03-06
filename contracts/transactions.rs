@@ -6,10 +6,10 @@ mod multisig;
 #[path = "timelock.rs"]
 mod timelock;
 
-pub use multisig::{MultiSigError, PendingTx};
 use multisig::{DataKey, MultisigEvents};
+pub use multisig::{MultiSigError, PendingTx};
+use timelock::TimelockEvents;
 pub use timelock::{TimelockError, TimelockedTx};
-use timelock::{TimelockEvents};
 
 #[contract]
 pub struct TransactionsContract;
@@ -50,7 +50,9 @@ impl TransactionsContract {
             panic_with_error!(&env, MultiSigError::InvalidAmount);
         }
 
-        env.storage().persistent().set(&DataKey::Balance(user), &amount);
+        env.storage()
+            .persistent()
+            .set(&DataKey::Balance(user), &amount);
     }
 
     pub fn get_balance(env: Env, user: Address) -> i128 {

@@ -19,7 +19,7 @@ mod overflow_tests {
 
         // Test that overflow in batch operations is properly handled
         // The contract should panic with Overflow error instead of silently capping
-        
+
         // This test verifies the fix for batch.rs:224-228
         // where checked arithmetic now properly errors instead of using unwrap_or(MAX)
     }
@@ -31,7 +31,7 @@ mod overflow_tests {
 
         // Test that proposal count increment uses checked arithmetic
         // The contract should panic with Overflow error on u32::MAX + 1
-        
+
         // This test verifies the fix for governance.rs:102
         // where new_id = count + 1 is now checked
     }
@@ -43,7 +43,7 @@ mod overflow_tests {
 
         // Test that approval count increment uses checked arithmetic
         // The contract should panic with Overflow error on u32::MAX + 1
-        
+
         // This test verifies the fix for governance.rs:147
         // where proposal.approvals += 1 is now checked
     }
@@ -55,7 +55,7 @@ mod overflow_tests {
 
         // Test that transaction counters use checked arithmetic
         // The contract should panic with Overflow error on overflow
-        
+
         // This test verifies the fix for throttling.rs:307-309
         // where transaction_count, total_transactions_all_time, and violation_count
         // are now incremented with checked arithmetic
@@ -68,7 +68,7 @@ mod overflow_tests {
 
         // Test that escrow counter uses checked arithmetic
         // The contract should panic with error on u64::MAX + 1
-        
+
         // This test verifies the fix for escrow/src/lib.rs:109-116
     }
 }
@@ -81,10 +81,10 @@ mod access_control_tests {
     fn test_refunds_require_admin_auth() {
         let env = Env::default();
         // Do NOT mock all auths - we want to test auth is required
-        
+
         // Test that require_admin properly calls require_auth()
         // Unauthorized calls should fail
-        
+
         // This test verifies the fix for refunds.rs:325-329
         // where require_auth() was added before admin check
     }
@@ -96,7 +96,7 @@ mod access_control_tests {
 
         // Test that link_wallet validates caller is admin or owner
         // Random callers should be rejected
-        
+
         // This test verifies the fix for wallet.rs:143-169
     }
 
@@ -107,7 +107,7 @@ mod access_control_tests {
 
         // Test that wallet_address cannot equal owner_address
         // Self-linking should be rejected with InvalidSignature error
-        
+
         // This test verifies the fix for wallet.rs:146-148
     }
 
@@ -141,7 +141,7 @@ mod error_handling_tests {
 
         // Test that double initialization returns AlreadyInitialized error
         // instead of panic!("Already initialized")
-        
+
         // This test verifies the fix for batch.rs:103-104
     }
 
@@ -152,7 +152,7 @@ mod error_handling_tests {
 
         // Test that get_admin on uninitialized contract returns NotInitialized error
         // instead of expect("Not initialized")
-        
+
         // This test verifies the fix for batch.rs:299, 332
     }
 
@@ -163,7 +163,7 @@ mod error_handling_tests {
 
         // Test that escrow operations on uninitialized contract return NotInitialized error
         // instead of expect("Contract not initialized")
-        
+
         // This test verifies the fix for escrow/src/lib.rs:103, 197-203, 367-373, 507, 570
     }
 
@@ -174,7 +174,7 @@ mod error_handling_tests {
 
         // Test that release_escrow with invalid ID returns EscrowNotFound error
         // instead of expect("Escrow not found")
-        
+
         // This test verifies the fix for escrow/src/lib.rs:513
     }
 
@@ -185,7 +185,7 @@ mod error_handling_tests {
 
         // Test that releasing inactive escrow returns proper error
         // instead of panic!("Escrow is not active")
-        
+
         // This test verifies the fix for escrow/src/lib.rs:530
     }
 
@@ -196,7 +196,7 @@ mod error_handling_tests {
 
         // Test that access control operations on uninitialized contract
         // return NotInitialized error instead of expect() or panic!()
-        
+
         // This test verifies the fix for access-control/src/lib.rs:68, 237, 254
     }
 }
@@ -212,7 +212,7 @@ mod input_validation_tests {
 
         // Test that config_key longer than MAX_CONFIG_STRING_LENGTH (256) is rejected
         // Should fail with InvalidInput error
-        
+
         // This test verifies the fix for governance.rs:103-105
     }
 
@@ -223,7 +223,7 @@ mod input_validation_tests {
 
         // Test that empty config_key is rejected
         // Should fail with InvalidInput error
-        
+
         // This test verifies the fix for governance.rs:104
     }
 
@@ -234,7 +234,7 @@ mod input_validation_tests {
 
         // Test that config_value longer than MAX_CONFIG_STRING_LENGTH (256) is rejected
         // Should fail with InvalidInput error
-        
+
         // This test verifies the fix for governance.rs:107-109
     }
 
@@ -245,7 +245,7 @@ mod input_validation_tests {
 
         // Test that duration_seconds of 0 is rejected
         // Should fail with InvalidInput error
-        
+
         // This test verifies the fix for governance.rs:110-112
     }
 
@@ -256,7 +256,7 @@ mod input_validation_tests {
 
         // Test that deadline calculation uses checked arithmetic
         // current_time + duration_seconds should not overflow
-        
+
         // This test verifies the fix for governance.rs:122-124
     }
 
@@ -337,7 +337,7 @@ mod authorization_tests {
     fn test_admin_only_functions_reject_non_admin() {
         let env = Env::default();
         // Do NOT mock all auths
-        
+
         // Test that admin-only functions reject non-admin callers
         // Should fail with Unauthorized error
     }
@@ -346,7 +346,7 @@ mod authorization_tests {
     fn test_owner_only_functions_reject_non_owner() {
         let env = Env::default();
         // Do NOT mock all auths
-        
+
         // Test that owner-only functions reject non-owner callers
         // Should fail with Unauthorized error
     }
@@ -355,7 +355,7 @@ mod authorization_tests {
     fn test_minter_only_functions_reject_non_minter() {
         let env = Env::default();
         // Do NOT mock all auths
-        
+
         // Test that minter-only functions reject non-minter callers
         // Should fail with InvalidMinter error
     }
@@ -364,7 +364,7 @@ mod authorization_tests {
     fn test_signer_only_functions_reject_non_signer() {
         let env = Env::default();
         // Do NOT mock all auths
-        
+
         // Test that signer-only functions reject non-signer callers
         // Should fail with UnauthorizedSigner error
     }

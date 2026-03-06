@@ -1,8 +1,8 @@
 #![no_std]
 
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short,
-    Address, Env, Map,
+    contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, Address,
+    Env, Map,
 };
 
 #[contracttype]
@@ -56,7 +56,9 @@ impl AssetControlContract {
         }
 
         blacklist.set(asset.clone(), true);
-        env.storage().instance().set(&DataKey::Blacklist, &blacklist);
+        env.storage()
+            .instance()
+            .set(&DataKey::Blacklist, &blacklist);
 
         env.events()
             .publish((symbol_short!("asset"), symbol_short!("blacklist")), asset);
@@ -78,10 +80,14 @@ impl AssetControlContract {
         }
 
         blacklist.remove(asset.clone());
-        env.storage().instance().set(&DataKey::Blacklist, &blacklist);
+        env.storage()
+            .instance()
+            .set(&DataKey::Blacklist, &blacklist);
 
-        env.events()
-            .publish((symbol_short!("asset"), symbol_short!("unblacklist")), asset);
+        env.events().publish(
+            (symbol_short!("asset"), symbol_short!("unblacklist")),
+            asset,
+        );
     }
 
     /// Checks if an asset is blacklisted.

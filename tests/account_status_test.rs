@@ -42,10 +42,13 @@ impl Ctx {
         let super_admin = Address::generate(&env);
         client.initialize(&super_admin);
 
-        let client: AccountStatusContractClient<'static> =
-            unsafe { core::mem::transmute(client) };
+        let client: AccountStatusContractClient<'static> = unsafe { core::mem::transmute(client) };
 
-        Self { env, client, super_admin }
+        Self {
+            env,
+            client,
+            super_admin,
+        }
     }
 
     fn reason(&self) -> String {
@@ -202,12 +205,8 @@ fn happy_freeze_stores_full_record() {
     let ctx = Ctx::new();
     ctx.set_timestamp(5_000);
     let target = Address::generate(&ctx.env);
-    ctx.client.freeze_account(
-        &ctx.super_admin,
-        &target,
-        &ctx.reason(),
-        &10_000,
-    );
+    ctx.client
+        .freeze_account(&ctx.super_admin, &target, &ctx.reason(), &10_000);
 
     let record = ctx.client.get_status(&target);
     assert!(record.frozen);
@@ -257,8 +256,7 @@ fn auth_non_admin_cannot_freeze() {
 fn auth_admin_cannot_freeze_self() {
     let ctx = Ctx::new();
     let admin = ctx.make_admin();
-    ctx.client
-        .freeze_account(&admin, &admin, &ctx.reason(), &0);
+    ctx.client.freeze_account(&admin, &admin, &ctx.reason(), &0);
 }
 
 #[test]
@@ -276,12 +274,8 @@ fn auth_super_admin_cannot_freeze_themselves_via_super_admin_guard() {
     // Even the super-admin cannot use freeze on their own address — would
     // lock the contract permanently.
     let ctx = Ctx::new();
-    ctx.client.freeze_account(
-        &ctx.super_admin,
-        &ctx.super_admin,
-        &ctx.reason(),
-        &0,
-    );
+    ctx.client
+        .freeze_account(&ctx.super_admin, &ctx.super_admin, &ctx.reason(), &0);
 }
 
 #[test]

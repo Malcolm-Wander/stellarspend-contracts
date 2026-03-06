@@ -1,8 +1,8 @@
 #![no_std]
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, contracterror, panic_with_error, symbol_short,
-    Address, Bytes, Env, Symbol, String,
+    contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, Address,
+    Bytes, Env, String, Symbol,
 };
 
 const MAX_MEMO_TYPE_LEN: u32 = 32;
@@ -65,9 +65,15 @@ impl MemoContract {
             panic_with_error!(&env, MemoError::MemoTooLarge);
         }
         env.storage().instance().set(&DataKey::Admin, &admin);
-        env.storage().instance().set(&DataKey::MaxMemoTypeLen, &max_memo_type_len);
-        env.storage().instance().set(&DataKey::MaxReferenceLen, &max_reference_len);
-        env.storage().instance().set(&DataKey::MaxTextLen, &max_text_len);
+        env.storage()
+            .instance()
+            .set(&DataKey::MaxMemoTypeLen, &max_memo_type_len);
+        env.storage()
+            .instance()
+            .set(&DataKey::MaxReferenceLen, &max_reference_len);
+        env.storage()
+            .instance()
+            .set(&DataKey::MaxTextLen, &max_text_len);
         env.events().publish(
             (symbol_short!("memo"), symbol_short!("init")),
             (admin, max_memo_type_len, max_reference_len, max_text_len),
@@ -102,16 +108,16 @@ impl MemoContract {
     }
 
     pub fn get_memo(env: Env, transaction_id: Bytes) -> Option<Memo> {
-        env.storage().persistent().get(&DataKey::Memo(transaction_id))
+        env.storage()
+            .persistent()
+            .get(&DataKey::Memo(transaction_id))
     }
 
     pub fn get_admin(env: Env) -> Option<Address> {
         env.storage().instance().get(&DataKey::Admin)
     }
 
-    pub fn get_limits(
-        env: Env,
-    ) -> Option<(u32, u32, u32)> {
+    pub fn get_limits(env: Env) -> Option<(u32, u32, u32)> {
         let a = env.storage().instance().get(&DataKey::MaxMemoTypeLen)?;
         let b = env.storage().instance().get(&DataKey::MaxReferenceLen)?;
         let c = env.storage().instance().get(&DataKey::MaxTextLen)?;
@@ -129,12 +135,7 @@ impl MemoContract {
         }
     }
 
-    fn validate_memo(
-        env: &Env,
-        memo_type: &Symbol,
-        reference: &String,
-        text: &String,
-    ) {
+    fn validate_memo(env: &Env, memo_type: &Symbol, reference: &String, text: &String) {
         let max_type: u32 = env
             .storage()
             .instance()

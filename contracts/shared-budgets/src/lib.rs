@@ -4,7 +4,7 @@ mod types;
 mod validation;
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, panic_with_error, token, Address, Env, Vec, Symbol,
+    contract, contractimpl, contracttype, panic_with_error, token, Address, Env, Symbol, Vec,
 };
 
 pub use crate::types::{
@@ -63,8 +63,12 @@ impl SharedBudgetContract {
         }
 
         env.storage().instance().set(&DataKey::Admin, &admin);
-        env.storage().instance().set(&DataKey::TotalBudgetsCreated, &0u64);
-        env.storage().instance().set(&DataKey::TotalContributionsProcessed, &0u64);
+        env.storage()
+            .instance()
+            .set(&DataKey::TotalBudgetsCreated, &0u64);
+        env.storage()
+            .instance()
+            .set(&DataKey::TotalContributionsProcessed, &0u64);
     }
 
     /// Creates a new shared budget with specified members and spending rules.
@@ -141,12 +145,7 @@ impl SharedBudgetContract {
     }
 
     /// Contributes to a shared budget.
-    pub fn contribute_to_budget(
-        env: Env,
-        contributor: Address,
-        budget_id: u64,
-        amount: i128,
-    ) {
+    pub fn contribute_to_budget(env: Env, contributor: Address, budget_id: u64, amount: i128) {
         contributor.require_auth();
 
         // Validate amount
@@ -267,12 +266,7 @@ impl SharedBudgetContract {
     }
 
     /// Add a member to an existing budget.
-    pub fn add_member_to_budget(
-        env: Env,
-        caller: Address,
-        budget_id: u64,
-        new_member: Address,
-    ) {
+    pub fn add_member_to_budget(env: Env, caller: Address, budget_id: u64, new_member: Address) {
         caller.require_auth();
 
         // Load budget
@@ -376,7 +370,8 @@ impl SharedBudgetContract {
         env.storage()
             .persistent()
             .get(&DataKey::Contribution(contribution_id))
-            .unwrap_or_else(|| panic_with_error!(&env, SharedBudgetError::RuleNotFound)) // Using RuleNotFound as a generic error
+            .unwrap_or_else(|| panic_with_error!(&env, SharedBudgetError::RuleNotFound))
+        // Using RuleNotFound as a generic error
     }
 
     /// Returns the admin address.
@@ -416,13 +411,15 @@ impl SharedBudgetContract {
         // Check each spending rule to see if it applies
         for rule in budget.spending_rules.iter() {
             // If this rule applies to the spender and the amount exceeds threshold
-            if rule.applicable_to == *spender { // Check if rule applies to this specific spender
+            if rule.applicable_to == *spender {
+                // Check if rule applies to this specific spender
                 let threshold_amount = if budget.total_contributed > 0 {
-                    (budget.total_contributed as f64 * (rule.percentage_threshold as f64 / 100.0)) as i128
+                    (budget.total_contributed as f64 * (rule.percentage_threshold as f64 / 100.0))
+                        as i128
                 } else {
                     0 // If no contributions yet, threshold is 0
                 };
-                
+
                 if amount > threshold_amount && !rule.requires_approval {
                     panic_with_error!(env, SharedBudgetError::Unauthorized);
                 }

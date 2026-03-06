@@ -24,7 +24,7 @@ fn setup_governance_contract() -> (Env, Address, GovernanceContractClient<'stati
     let client = GovernanceContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
-    
+
     // Require 2 approvals
     client.initialize(&admin, &2);
 
@@ -34,7 +34,7 @@ fn setup_governance_contract() -> (Env, Address, GovernanceContractClient<'stati
 #[test]
 fn test_governance_initialization() {
     let (env, admin, client) = setup_governance_contract();
-    
+
     // A query just to ensure it's initialized correctly
     let none = client.get_proposal(&1);
     assert!(none.is_none());
@@ -47,7 +47,7 @@ fn test_proposal_creation() {
     let proposer = Address::generate(&env);
     let key = String::from_str(&env, "fee_rate");
     let val = String::from_str(&env, "500");
-    
+
     let prop_id = client.create_proposal(&proposer, &key, &val, &86400); // 1 day
     assert_eq!(prop_id, 1);
 
@@ -64,7 +64,8 @@ fn test_proposal_creation() {
         .iter()
         .filter(|event| {
             event.1.iter().any(|topic| {
-                symbol_short!("created") == soroban_sdk::Symbol::try_from_val(&env, &topic).unwrap_or(symbol_short!(""))
+                symbol_short!("created")
+                    == soroban_sdk::Symbol::try_from_val(&env, &topic).unwrap_or(symbol_short!(""))
             })
         })
         .count();
@@ -81,7 +82,7 @@ fn test_voting_and_execution_success() {
 
     let key = String::from_str(&env, "fee_rate");
     let val = String::from_str(&env, "500");
-    
+
     let prop_id = client.create_proposal(&proposer, &key, &val, &86400);
 
     // Voter 1
@@ -110,7 +111,8 @@ fn test_voting_and_execution_success() {
         .iter()
         .filter(|event| {
             event.1.iter().any(|topic| {
-                symbol_short!("executed") == soroban_sdk::Symbol::try_from_val(&env, &topic).unwrap_or(symbol_short!(""))
+                symbol_short!("executed")
+                    == soroban_sdk::Symbol::try_from_val(&env, &topic).unwrap_or(symbol_short!(""))
             })
         })
         .count();
@@ -127,12 +129,12 @@ fn test_double_voting_panics() {
 
     let key = String::from_str(&env, "fee_rate");
     let val = String::from_str(&env, "500");
-    
+
     let prop_id = client.create_proposal(&proposer, &key, &val, &86400);
 
     // Voter 1
     client.vote_proposal(&voter1, &prop_id);
-    
+
     // Voter 1 votes again
     client.vote_proposal(&voter1, &prop_id);
 }
@@ -147,12 +149,12 @@ fn test_execution_without_enough_approvals_panics() {
 
     let key = String::from_str(&env, "fee_rate");
     let val = String::from_str(&env, "500");
-    
+
     let prop_id = client.create_proposal(&proposer, &key, &val, &86400);
 
     // Only 1 approval, needs 2
     client.vote_proposal(&voter1, &prop_id);
-    
+
     client.execute_proposal(&proposer, &prop_id);
 }
 
@@ -166,7 +168,7 @@ fn test_voting_on_expired_proposal_panics() {
 
     let key = String::from_str(&env, "fee_rate");
     let val = String::from_str(&env, "500");
-    
+
     let duration = 86400; // 1 day
     let prop_id = client.create_proposal(&proposer, &key, &val, &duration);
 

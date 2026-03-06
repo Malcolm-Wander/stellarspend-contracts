@@ -132,8 +132,16 @@ impl EscrowEvents {
         amount: i128,
     ) {
         let topics = (symbol_short!("escrow"), symbol_short!("created"));
-        env.events()
-            .publish(topics, (escrow_id, depositor.clone(), recipient.clone(), arbiter.clone(), amount));
+        env.events().publish(
+            topics,
+            (
+                escrow_id,
+                depositor.clone(),
+                recipient.clone(),
+                arbiter.clone(),
+                amount,
+            ),
+        );
     }
 
     /// Emitted when a batch reversal starts.

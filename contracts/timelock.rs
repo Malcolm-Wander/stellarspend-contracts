@@ -130,4 +130,3 @@ pub fn update_timelock(env: &Env, tx: &TimelockedTx) {
         .persistent()
         .set(&TimelockDataKey::TimelockedTx(tx.id), tx);
 }
-

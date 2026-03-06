@@ -7,7 +7,7 @@ use soroban_sdk::{
 #[path = "../contracts/fees.rs"]
 mod fees;
 
-use fees::{FeesContract, FeesContractClient, FeeError};
+use fees::{FeeError, FeesContract, FeesContractClient};
 
 fn setup_fee_contract() -> (Env, Address, FeesContractClient<'static>) {
     let env = Env::default();
@@ -60,7 +60,9 @@ fn test_calculate_and_deduct_fee() {
 
     // event emitted
     let events = env.events().all();
-    assert!(events.iter().any(|e| e.topics.0 == "fee" && e.topics.1 == "deducted"));
+    assert!(events
+        .iter()
+        .any(|e| e.topics.0 == "fee" && e.topics.1 == "deducted"));
 }
 
 #[test]
@@ -86,6 +88,8 @@ fn test_update_configuration_emits_event() {
     let (env, admin, client) = setup_fee_contract();
     client.set_percentage(&admin, &250u32); // 2.5%
     let events = env.events().all();
-    assert!(events.iter().any(|e| e.topics.0 == "fee" && e.topics.1 == "config_updated"));
+    assert!(events
+        .iter()
+        .any(|e| e.topics.0 == "fee" && e.topics.1 == "config_updated"));
     assert_eq!(client.get_percentage(), 250u32);
 }

@@ -317,7 +317,11 @@ impl SpendingLimitsContract {
             0
         } else {
             let base = limit.monthly_limit / 30;
-            if base == 0 { 1 } else { base }
+            if base == 0 {
+                1
+            } else {
+                base
+            }
         };
 
         let mut daily_ok = true;
@@ -342,13 +346,7 @@ impl SpendingLimitsContract {
                 limit.monthly_limit - current_monthly
             };
 
-            LimitEvents::limit_exceeded(
-                &env,
-                &user,
-                amount,
-                remaining_daily,
-                remaining_monthly,
-            );
+            LimitEvents::limit_exceeded(&env, &user, amount, remaining_daily, remaining_monthly);
 
             if !daily_ok {
                 panic_with_error!(&env, SpendingLimitError::DailyLimitExceeded);

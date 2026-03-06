@@ -126,11 +126,7 @@ impl DelegationContract {
 
         let key = DelegationDataKey::Allowance(owner.clone(), delegate.clone());
 
-        if let Some(mut delegation) = env
-            .storage()
-            .persistent()
-            .get::<_, Delegation>(&key)
-        {
+        if let Some(mut delegation) = env.storage().persistent().get::<_, Delegation>(&key) {
             // [SEC-DEL-01] Checked addition — surfaced as Overflow, not clamped.
             let new_spent = delegation
                 .spent

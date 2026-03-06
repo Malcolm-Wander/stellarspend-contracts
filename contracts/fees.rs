@@ -1,6 +1,6 @@
 use soroban_sdk::{
-    contract, contractimpl, contracterror, contracttype, panic_with_error, symbol_short,
-    Address, Env,
+    contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, Address,
+    Env,
 };
 
 /// Storage keys used by the fees contract.

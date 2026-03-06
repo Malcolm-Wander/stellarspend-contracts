@@ -107,7 +107,10 @@ fn test_check_asset_blacklisted() {
 
     // Check event
     let events = env.events().all();
-    assert_eq!(events.last().unwrap().1, (symbol_short!("asset"), symbol_short!("blocked")));
+    assert_eq!(
+        events.last().unwrap().1,
+        (symbol_short!("asset"), symbol_short!("blocked"))
+    );
 }
 
 #[test]

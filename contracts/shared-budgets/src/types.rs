@@ -1,6 +1,6 @@
 // Types and events for shared budget management.
 
-use soroban_sdk::{contracttype, symbol_short, Address, Env, Vec, Symbol};
+use soroban_sdk::{contracttype, symbol_short, Address, Env, Symbol, Vec};
 
 /// Maximum number of members allowed in a budget.
 pub const MAX_BUDGET_MEMBERS: u32 = 20;
@@ -85,9 +85,18 @@ pub struct SharedBudgetEvents;
 
 impl SharedBudgetEvents {
     /// Event emitted when a budget is created.
-    pub fn budget_created(env: &Env, budget_id: u64, creator: &Address, members: &Vec<Address>, token: &Address) {
+    pub fn budget_created(
+        env: &Env,
+        budget_id: u64,
+        creator: &Address,
+        members: &Vec<Address>,
+        token: &Address,
+    ) {
         let topics = (symbol_short!("budget"), symbol_short!("created"));
-        env.events().publish(topics, (budget_id, creator.clone(), members.clone(), token.clone()));
+        env.events().publish(
+            topics,
+            (budget_id, creator.clone(), members.clone(), token.clone()),
+        );
     }
 
     /// Event emitted when a contribution is added to a budget.
@@ -125,6 +134,13 @@ impl SharedBudgetEvents {
     /// Event emitted when a spending rule is added to a budget.
     pub fn spending_rule_added(env: &Env, budget_id: u64, rule: &BudgetSpendingRule) {
         let topics = (symbol_short!("budget"), symbol_short!("rule"), budget_id);
-        env.events().publish(topics, (rule.applicable_to.clone(), rule.percentage_threshold, rule.requires_approval));
+        env.events().publish(
+            topics,
+            (
+                rule.applicable_to.clone(),
+                rule.percentage_threshold,
+                rule.requires_approval,
+            ),
+        );
     }
 }

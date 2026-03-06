@@ -19,7 +19,7 @@ fn setup_rewards_contract() -> (Env, Address, RewardsContractClient<'static>) {
     let client = RewardsContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
-    
+
     // Base reward = 100, multiplier = 50
     client.initialize(&admin, &100, &50);
 
@@ -60,7 +60,8 @@ fn test_distribute_reward_success() {
         .iter()
         .filter(|event| {
             event.1.iter().any(|topic| {
-                symbol_short!("issued") == soroban_sdk::Symbol::try_from_val(&env, &topic).unwrap_or(symbol_short!(""))
+                symbol_short!("issued")
+                    == soroban_sdk::Symbol::try_from_val(&env, &topic).unwrap_or(symbol_short!(""))
             })
         })
         .count();
@@ -86,7 +87,7 @@ fn test_duplicate_reward_prevention() {
 fn test_invalid_milestone() {
     let (env, admin, client) = setup_rewards_contract();
     let user = Address::generate(&env);
-    
+
     // milestone_id = 0 is invalid
     let milestone_id = 0;
 

@@ -17,8 +17,8 @@ use soroban_sdk::{
 };
 
 use crate::streak_rewards::{
-    StreakError, StreakRewardsContract, StreakRewardsContractClient,
-    STREAK_TIER_CENTURY, STREAK_TIER_MONTH, STREAK_TIER_WEEK,
+    StreakError, StreakRewardsContract, StreakRewardsContractClient, STREAK_TIER_CENTURY,
+    STREAK_TIER_MONTH, STREAK_TIER_WEEK,
 };
 
 // ── Test helpers ──────────────────────────────────────────────────────────────
@@ -63,10 +63,14 @@ impl TestCtx {
         token_sac.mint(&contract_id, &1_000_000i128);
 
         // Unsafe transmute lifetime for convenience — the Env outlives the test.
-        let client: StreakRewardsContractClient<'static> =
-            unsafe { core::mem::transmute(client) };
+        let client: StreakRewardsContractClient<'static> = unsafe { core::mem::transmute(client) };
 
-        Self { env, client, admin, token_id }
+        Self {
+            env,
+            client,
+            admin,
+            token_id,
+        }
     }
 
     /// Advance ledger timestamp by `days` full days.
@@ -653,7 +657,7 @@ fn security_record_deposit_requires_auth() {
     // Now remove auth mocking and try record_deposit.
     let env2 = Env::default(); // fresh env without mocked auth
     let _ = env2; // won't be used — just documenting intent
-    // This call should panic because require_auth is not satisfied.
+                  // This call should panic because require_auth is not satisfied.
     let user = Address::generate(&env);
     client.record_deposit(&user); // panics
 }

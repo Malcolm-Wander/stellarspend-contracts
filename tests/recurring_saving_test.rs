@@ -17,8 +17,8 @@ use soroban_sdk::{
 };
 
 use crate::recurring_savings::{
-    RecurringError, RecurringSavingsContract, RecurringSavingsContractClient,
-    ScheduleStatus, MIN_INTERVAL_SECS,
+    RecurringError, RecurringSavingsContract, RecurringSavingsContractClient, ScheduleStatus,
+    MIN_INTERVAL_SECS,
 };
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -55,7 +55,12 @@ impl Ctx {
         let client: RecurringSavingsContractClient<'static> =
             unsafe { core::mem::transmute(client) };
 
-        Self { env, client, admin, token_id }
+        Self {
+            env,
+            client,
+            admin,
+            token_id,
+        }
     }
 
     /// Create an owner with `balance` tokens already approved for the contract.
@@ -145,14 +150,9 @@ fn happy_create_schedule_stores_correct_fields() {
     let owner = ctx.funded_owner(10_000);
     let goal = Address::generate(&ctx.env);
 
-    let id = ctx.client.create_schedule(
-        &owner,
-        &ctx.token_id,
-        &goal,
-        &AMOUNT,
-        &INTERVAL,
-        &5,
-    );
+    let id = ctx
+        .client
+        .create_schedule(&owner, &ctx.token_id, &goal, &AMOUNT, &INTERVAL, &5);
 
     let s = ctx.client.get_schedule(&id);
     assert_eq!(s.owner, owner);
@@ -173,7 +173,8 @@ fn neg_create_zero_amount() {
     let ctx = Ctx::new();
     let owner = ctx.funded_owner(10_000);
     let goal = Address::generate(&ctx.env);
-    ctx.client.create_schedule(&owner, &ctx.token_id, &goal, &0, &INTERVAL, &0);
+    ctx.client
+        .create_schedule(&owner, &ctx.token_id, &goal, &0, &INTERVAL, &0);
 }
 
 #[test]
@@ -182,7 +183,8 @@ fn neg_create_negative_amount() {
     let ctx = Ctx::new();
     let owner = ctx.funded_owner(10_000);
     let goal = Address::generate(&ctx.env);
-    ctx.client.create_schedule(&owner, &ctx.token_id, &goal, &-1, &INTERVAL, &0);
+    ctx.client
+        .create_schedule(&owner, &ctx.token_id, &goal, &-1, &INTERVAL, &0);
 }
 
 #[test]
@@ -216,7 +218,10 @@ fn edge_create_interval_exactly_at_minimum() {
         &MIN_INTERVAL_SECS,
         &0,
     );
-    assert_eq!(ctx.client.get_schedule(&id).interval_secs, MIN_INTERVAL_SECS);
+    assert_eq!(
+        ctx.client.get_schedule(&id).interval_secs,
+        MIN_INTERVAL_SECS
+    );
 }
 
 #[test]
@@ -225,7 +230,8 @@ fn neg_savings_goal_same_as_owner() {
     let ctx = Ctx::new();
     let owner = ctx.funded_owner(10_000);
     // Circular self-contribution must be rejected.
-    ctx.client.create_schedule(&owner, &ctx.token_id, &owner, &AMOUNT, &INTERVAL, &0);
+    ctx.client
+        .create_schedule(&owner, &ctx.token_id, &owner, &AMOUNT, &INTERVAL, &0);
 }
 
 // ── execute_contribution ──────────────────────────────────────────────────────
@@ -380,14 +386,9 @@ fn neg_execute_exhausted_schedule() {
     let owner = ctx.funded_owner(10_000);
     let goal = Address::generate(&ctx.env);
 
-    let id = ctx.client.create_schedule(
-        &owner,
-        &ctx.token_id,
-        &goal,
-        &AMOUNT,
-        &INTERVAL,
-        &1,
-    );
+    let id = ctx
+        .client
+        .create_schedule(&owner, &ctx.token_id, &goal, &AMOUNT, &INTERVAL, &1);
 
     ctx.set_timestamp(INTERVAL);
     ctx.client.execute_contribution(&id);
@@ -430,14 +431,9 @@ fn edge_single_execution_schedule() {
     let owner = ctx.funded_owner(10_000);
     let goal = Address::generate(&ctx.env);
 
-    let id = ctx.client.create_schedule(
-        &owner,
-        &ctx.token_id,
-        &goal,
-        &AMOUNT,
-        &INTERVAL,
-        &1,
-    );
+    let id = ctx
+        .client
+        .create_schedule(&owner, &ctx.token_id, &goal, &AMOUNT, &INTERVAL, &1);
 
     ctx.set_timestamp(INTERVAL);
     let paid = ctx.client.execute_contribution(&id);
@@ -524,7 +520,10 @@ fn happy_cancel_preserves_execution_history() {
     ctx.client.cancel_schedule(&owner, &id);
 
     let s = ctx.client.get_schedule(&id);
-    assert_eq!(s.executions_completed, 2, "history must be preserved after cancel");
+    assert_eq!(
+        s.executions_completed, 2,
+        "history must be preserved after cancel"
+    );
     assert_eq!(s.status, ScheduleStatus::Cancelled);
 }
 
@@ -573,14 +572,9 @@ fn happy_is_due_false_after_exhaustion() {
     let owner = ctx.funded_owner(10_000);
     let goal = Address::generate(&ctx.env);
 
-    let id = ctx.client.create_schedule(
-        &owner,
-        &ctx.token_id,
-        &goal,
-        &AMOUNT,
-        &INTERVAL,
-        &1,
-    );
+    let id = ctx
+        .client
+        .create_schedule(&owner, &ctx.token_id, &goal, &AMOUNT, &INTERVAL, &1);
 
     ctx.set_timestamp(INTERVAL);
     ctx.client.execute_contribution(&id);

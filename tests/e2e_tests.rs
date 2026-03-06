@@ -5,9 +5,7 @@ use soroban_sdk::{
     Address, Env,
 };
 
-use stellarspend_contract::{
-    StellarSpendContract, StellarSpendContractClient,
-};
+use stellarspend_contract::{StellarSpendContract, StellarSpendContractClient};
 
 fn setup() -> (Env, StellarSpendContractClient<'static>) {
     let env = Env::default();
@@ -52,8 +50,5 @@ fn test_full_stellarspend_workflow() {
     // Create savings
     client.create_savings(&user1, &"vacation".into(), &200);
 
-    assert_eq!(
-        client.get_savings(&user1, &"vacation".into()),
-        200
-    );
+    assert_eq!(client.get_savings(&user1, &"vacation".into()), 200);
 }

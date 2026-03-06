@@ -1,6 +1,6 @@
 use soroban_sdk::{
-    contract, contractimpl, contracterror, contracttype, panic_with_error, symbol_short, 
-    Address, Env, Vec,
+    contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, Address,
+    Env, Vec,
 };
 
 #[path = "history.rs"]
@@ -51,13 +51,19 @@ pub fn initialize_archive(env: &Env, admin: Address, threshold_seconds: u64) {
         panic_with_error!(env, ArchiveError::AlreadyInitialized);
     }
     env.storage().instance().set(&ArchiveDataKey::Admin, &admin);
-    env.storage().instance().set(&ArchiveDataKey::ArchiveThreshold, &threshold_seconds);
-    env.storage().instance().set(&ArchiveDataKey::ArchiveBatchCount, &0u64);
+    env.storage()
+        .instance()
+        .set(&ArchiveDataKey::ArchiveThreshold, &threshold_seconds);
+    env.storage()
+        .instance()
+        .set(&ArchiveDataKey::ArchiveBatchCount, &0u64);
 }
 
 pub fn require_admin(env: &Env, caller: &Address) {
     caller.require_auth();
-    let admin: Address = env.storage().instance()
+    let admin: Address = env
+        .storage()
+        .instance()
         .get(&ArchiveDataKey::Admin)
         .unwrap_or_else(|| panic_with_error!(env, ArchiveError::NotInitialized));
     if admin != *caller {
@@ -70,20 +76,24 @@ pub fn set_threshold(env: &Env, caller: Address, threshold_seconds: u64) {
     if threshold_seconds == 0 {
         panic_with_error!(env, ArchiveError::InvalidThreshold);
     }
-    env.storage().instance().set(&ArchiveDataKey::ArchiveThreshold, &threshold_seconds);
+    env.storage()
+        .instance()
+        .set(&ArchiveDataKey::ArchiveThreshold, &threshold_seconds);
 }
 
 pub fn archive_records(env: &Env, caller: Address, records: Vec<TransactionRecord>) -> u64 {
     require_admin(env, &caller);
-    
+
     if records.is_empty() {
         panic_with_error!(env, ArchiveError::NoRecordsToArchive);
     }
 
-    let threshold: u64 = env.storage().instance()
+    let threshold: u64 = env
+        .storage()
+        .instance()
         .get(&ArchiveDataKey::ArchiveThreshold)
         .unwrap_or_else(|| panic_with_error!(env, ArchiveError::NotInitialized));
-        
+
     let current_time = env.ledger().timestamp();
     let cutoff_time = current_time.saturating_sub(threshold);
 
@@ -108,10 +118,12 @@ pub fn archive_records(env: &Env, caller: Address, records: Vec<TransactionRecor
         panic_with_error!(env, ArchiveError::NoRecordsToArchive);
     }
 
-    let batch_count: u64 = env.storage().instance()
+    let batch_count: u64 = env
+        .storage()
+        .instance()
         .get(&ArchiveDataKey::ArchiveBatchCount)
         .unwrap_or(0);
-        
+
     let new_batch_id = batch_count + 1;
 
     let archive = CompressedArchive {
@@ -121,16 +133,22 @@ pub fn archive_records(env: &Env, caller: Address, records: Vec<TransactionRecor
         records: valid_records.clone(),
     };
 
-    env.storage().persistent().set(&ArchiveDataKey::ArchiveBatch(new_batch_id), &archive);
-    env.storage().instance().set(&ArchiveDataKey::ArchiveBatchCount, &new_batch_id);
+    env.storage()
+        .persistent()
+        .set(&ArchiveDataKey::ArchiveBatch(new_batch_id), &archive);
+    env.storage()
+        .instance()
+        .set(&ArchiveDataKey::ArchiveBatchCount, &new_batch_id);
 
     ArchiveEvents::batch_archived(env, new_batch_id, valid_records.len());
-    
+
     new_batch_id
 }
 
 pub fn get_archive_batch(env: &Env, batch_id: u64) -> Option<CompressedArchive> {
-    env.storage().persistent().get(&ArchiveDataKey::ArchiveBatch(batch_id))
+    env.storage()
+        .persistent()
+        .get(&ArchiveDataKey::ArchiveBatch(batch_id))
 }
 
 #[contract]

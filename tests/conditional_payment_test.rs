@@ -51,7 +51,12 @@ impl Ctx {
         let client: ConditionalPaymentsContractClient<'static> =
             unsafe { core::mem::transmute(client) };
 
-        Self { env, client, admin, token_id }
+        Self {
+            env,
+            client,
+            admin,
+            token_id,
+        }
     }
 
     /// Mint `balance` to `owner` and approve the contract to spend it.
@@ -817,7 +822,7 @@ fn happy_check_conditions_returns_per_condition_results() {
 
     let results = ctx.client.check_conditions(&id);
     assert_eq!(results.get(0), Some(false)); // TimeAfter(1000) not yet
-    assert_eq!(results.get(1), Some(true));  // TimeBefore(2000) passes
+    assert_eq!(results.get(1), Some(true)); // TimeBefore(2000) passes
 
     // Advance past TimeAfter threshold.
     ctx.set_timestamp(1_000);
@@ -943,13 +948,9 @@ fn edge_max_conditions_boundary_is_accepted() {
         conds.push_back(Condition::TimeAfter(i));
     }
     // Should not panic.
-    let id = ctx.client.create_payment(
-        &payer,
-        &recipient,
-        &ctx.token_id,
-        &AMOUNT,
-        &conds,
-    );
+    let id = ctx
+        .client
+        .create_payment(&payer, &recipient, &ctx.token_id, &AMOUNT, &conds);
 
     ctx.set_timestamp(MAX_CONDITIONS as u64);
     let paid = ctx.client.execute_payment(&id);

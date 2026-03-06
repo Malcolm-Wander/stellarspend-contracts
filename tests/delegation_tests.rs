@@ -10,12 +10,13 @@ use soroban_sdk::{testutils::Address as _, Address, Env};
 fn test_successful_delegation() {
     let env = Env::default();
     env.mock_all_auths();
-    
+
     let owner = Address::generate(&env);
     let delegate = Address::generate(&env);
     let limit = 1000;
 
-    let client = DelegationContractClient::new(&env, &env.register_contract(None, DelegationContract));
+    let client =
+        DelegationContractClient::new(&env, &env.register_contract(None, DelegationContract));
     client.set_delegation(&owner, &delegate, &limit);
 
     let delegation = client.get_delegation(&owner, &delegate).unwrap();
@@ -28,11 +29,12 @@ fn test_successful_delegation() {
 fn test_delegate_to_self_fails() {
     let env = Env::default();
     env.mock_all_auths();
-    
+
     let owner = Address::generate(&env);
     let limit = 1000;
 
-    let client = DelegationContractClient::new(&env, &env.register_contract(None, DelegationContract));
+    let client =
+        DelegationContractClient::new(&env, &env.register_contract(None, DelegationContract));
     client.set_delegation(&owner, &owner, &limit);
 }
 
@@ -40,14 +42,15 @@ fn test_delegate_to_self_fails() {
 fn test_revoke_delegation() {
     let env = Env::default();
     env.mock_all_auths();
-    
+
     let owner = Address::generate(&env);
     let delegate = Address::generate(&env);
     let limit = 1000;
 
-    let client = DelegationContractClient::new(&env, &env.register_contract(None, DelegationContract));
+    let client =
+        DelegationContractClient::new(&env, &env.register_contract(None, DelegationContract));
     client.set_delegation(&owner, &delegate, &limit);
-    
+
     // Revoke
     client.revoke_delegation(&owner, &delegate);
 
@@ -59,12 +62,13 @@ fn test_revoke_delegation() {
 fn test_spend_within_limit() {
     let env = Env::default();
     env.mock_all_auths();
-    
+
     let owner = Address::generate(&env);
     let delegate = Address::generate(&env);
     let limit = 1000;
 
-    let client = DelegationContractClient::new(&env, &env.register_contract(None, DelegationContract));
+    let client =
+        DelegationContractClient::new(&env, &env.register_contract(None, DelegationContract));
     client.set_delegation(&owner, &delegate, &limit);
 
     let spend_amount = 500;
@@ -80,12 +84,13 @@ fn test_spend_within_limit() {
 fn test_overspend_fails() {
     let env = Env::default();
     env.mock_all_auths();
-    
+
     let owner = Address::generate(&env);
     let delegate = Address::generate(&env);
     let limit = 1000;
 
-    let client = DelegationContractClient::new(&env, &env.register_contract(None, DelegationContract));
+    let client =
+        DelegationContractClient::new(&env, &env.register_contract(None, DelegationContract));
     client.set_delegation(&owner, &delegate, &limit);
 
     let spend_amount = 1500;
@@ -97,13 +102,14 @@ fn test_overspend_fails() {
 fn test_unauthorized_delegate_fails() {
     let env = Env::default();
     env.mock_all_auths();
-    
+
     let owner = Address::generate(&env);
     let delegate = Address::generate(&env);
     let unauthorized = Address::generate(&env);
     let limit = 1000;
 
-    let client = DelegationContractClient::new(&env, &env.register_contract(None, DelegationContract));
+    let client =
+        DelegationContractClient::new(&env, &env.register_contract(None, DelegationContract));
     client.set_delegation(&owner, &delegate, &limit);
 
     let spend_amount = 500;

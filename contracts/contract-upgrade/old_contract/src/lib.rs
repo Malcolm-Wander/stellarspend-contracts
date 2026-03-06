@@ -21,20 +21,20 @@ impl UpgradeableContract {
         1
     }
 
-   pub fn upgrade(e: Env, new_wasm_hash: BytesN<32>) {
-    let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
-    admin.require_auth();
+    pub fn upgrade(e: Env, new_wasm_hash: BytesN<32>) {
+        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        admin.require_auth();
 
-    // Validate storage layout before upgrading
-    if !e.storage().instance().has(&DataKey::Admin) {
-        panic!("storage layout invalid: Admin key missing");
+        // Validate storage layout before upgrading
+        if !e.storage().instance().has(&DataKey::Admin) {
+            panic!("storage layout invalid: Admin key missing");
+        }
+
+        e.deployer()
+            .update_current_contract_wasm(new_wasm_hash.clone());
+        e.events()
+            .publish((symbol_short!("upgrade"),), new_wasm_hash);
     }
-
-    e.deployer()
-        .update_current_contract_wasm(new_wasm_hash.clone());
-    e.events()
-        .publish((symbol_short!("upgrade"),), new_wasm_hash);
-}
 }
 
 mod test;

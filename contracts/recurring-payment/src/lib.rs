@@ -72,7 +72,6 @@ impl RecurringPaymentContract {
         count
     }
 
- 
     /// # Arguments
     /// * `payment_id` - The ID returned by `create_payment`
     pub fn execute_payment(env: Env, payment_id: u64) {

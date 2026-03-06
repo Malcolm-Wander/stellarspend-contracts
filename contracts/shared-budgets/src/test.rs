@@ -234,7 +234,7 @@ fn test_budget_events_emitted() {
     // Check that events were emitted
     let events = env.events().all();
     assert!(events.len() >= 1); // At least budget creation event
-    
+
     // Check that events were emitted (simplified check)
     assert!(!events.is_empty());
 }

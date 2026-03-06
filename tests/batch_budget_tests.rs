@@ -40,10 +40,8 @@ mod tests {
         });
 
         // Convert to contract type
-        let contract_requests: Vec<contracts::batch::BudgetUpdateRequest> = requests
-            .iter()
-            .map(|req| req.clone().into())
-            .collect();
+        let contract_requests: Vec<contracts::batch::BudgetUpdateRequest> =
+            requests.iter().map(|req| req.clone().into()).collect();
 
         // Execute batch update
         let result = contracts::batch::BatchBudgetContract::batch_update_budgets(
@@ -72,14 +70,16 @@ mod tests {
         assert_eq!(budget3.unwrap().amount, 1500);
 
         // Verify total allocated
-        let total_allocated = contracts::batch::BatchBudgetContract::get_total_allocated(env.clone());
+        let total_allocated =
+            contracts::batch::BatchBudgetContract::get_total_allocated(env.clone());
         assert_eq!(total_allocated, 4500);
 
         // Verify batch statistics
         let total_batches = contracts::batch::BatchBudgetContract::get_total_batches(env.clone());
         assert_eq!(total_batches, 1);
 
-        let total_updates = contracts::batch::BatchBudgetContract::get_total_updates_processed(env.clone());
+        let total_updates =
+            contracts::batch::BatchBudgetContract::get_total_updates_processed(env.clone());
         assert_eq!(total_updates, 3);
     }
 
@@ -278,7 +278,8 @@ mod tests {
         );
 
         // Verify initial total allocated
-        let total_allocated = contracts::batch::BatchBudgetContract::get_total_allocated(env.clone());
+        let total_allocated =
+            contracts::batch::BatchBudgetContract::get_total_allocated(env.clone());
         assert_eq!(total_allocated, 3000);
 
         // Create update requests
@@ -315,7 +316,8 @@ mod tests {
         assert_eq!(budget2.unwrap().amount, 1000);
 
         // Verify total allocated was updated correctly
-        let total_allocated = contracts::batch::BatchBudgetContract::get_total_allocated(env.clone());
+        let total_allocated =
+            contracts::batch::BatchBudgetContract::get_total_allocated(env.clone());
         assert_eq!(total_allocated, 2500);
     }
 
@@ -370,7 +372,8 @@ mod tests {
         );
 
         // Verify initial state
-        let initial_budget = contracts::batch::BatchBudgetContract::get_budget(env.clone(), user1.clone());
+        let initial_budget =
+            contracts::batch::BatchBudgetContract::get_budget(env.clone(), user1.clone());
         assert_eq!(initial_budget.unwrap().amount, 1000);
 
         let initial_total = contracts::batch::BatchBudgetContract::get_total_allocated(env.clone());
@@ -399,7 +402,8 @@ mod tests {
         assert_eq!(result.failed, 1);
 
         // Verify valid update was applied
-        let updated_budget = contracts::batch::BatchBudgetContract::get_budget(env.clone(), user1.clone());
+        let updated_budget =
+            contracts::batch::BatchBudgetContract::get_budget(env.clone(), user1.clone());
         assert_eq!(updated_budget.unwrap().amount, 2000);
 
         // Verify total was updated correctly (only valid changes applied)

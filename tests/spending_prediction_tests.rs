@@ -1,6 +1,6 @@
 #![cfg(test)]
-use soroban_sdk::{Env, Address};
 use crate::PredictionEngine;
+use soroban_sdk::{Address, Env};
 
 #[test]
 fn test_prediction_basic() {

@@ -1,6 +1,6 @@
 use soroban_sdk::{
-    contract, contractimpl, contracterror, contracttype, panic_with_error, symbol_short, 
-    Address, Env, String,
+    contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, Address,
+    Env, String,
 };
 
 #[derive(Clone)]
@@ -11,7 +11,7 @@ pub enum GovernanceDataKey {
     ProposalCount,
     Proposal(u32),
     UserVote(u32, Address), // Proposal ID, User -> bool
-    ConfigValue(String), // Stores the actual config data
+    ConfigValue(String),    // Stores the actual config data
 }
 
 #[derive(Clone)]
@@ -53,19 +53,35 @@ impl GovernanceEvents {
         config_value: &String,
     ) {
         let topics = (symbol_short!("gov"), symbol_short!("created"));
-        env.events()
-            .publish(topics, (id, proposer.clone(), config_key.clone(), config_value.clone(), env.ledger().timestamp()));
+        env.events().publish(
+            topics,
+            (
+                id,
+                proposer.clone(),
+                config_key.clone(),
+                config_value.clone(),
+                env.ledger().timestamp(),
+            ),
+        );
     }
 
     pub fn voted(env: &Env, id: u32, voter: &Address) {
         let topics = (symbol_short!("gov"), symbol_short!("voted"));
-        env.events().publish(topics, (id, voter.clone(), env.ledger().timestamp()));
+        env.events()
+            .publish(topics, (id, voter.clone(), env.ledger().timestamp()));
     }
 
     pub fn proposal_executed(env: &Env, id: u32, config_key: &String, config_value: &String) {
         let topics = (symbol_short!("gov"), symbol_short!("executed"));
-        env.events()
-            .publish(topics, (id, config_key.clone(), config_value.clone(), env.ledger().timestamp()));
+        env.events().publish(
+            topics,
+            (
+                id,
+                config_key.clone(),
+                config_value.clone(),
+                env.ledger().timestamp(),
+            ),
+        );
     }
 }
 
@@ -73,14 +89,22 @@ pub fn initialize_governance(env: &Env, admin: Address, required_approvals: u32)
     if env.storage().instance().has(&GovernanceDataKey::Admin) {
         panic_with_error!(env, GovernanceError::AlreadyInitialized);
     }
-    env.storage().instance().set(&GovernanceDataKey::Admin, &admin);
-    env.storage().instance().set(&GovernanceDataKey::RequiredApprovals, &required_approvals);
-    env.storage().instance().set(&GovernanceDataKey::ProposalCount, &0u32);
+    env.storage()
+        .instance()
+        .set(&GovernanceDataKey::Admin, &admin);
+    env.storage()
+        .instance()
+        .set(&GovernanceDataKey::RequiredApprovals, &required_approvals);
+    env.storage()
+        .instance()
+        .set(&GovernanceDataKey::ProposalCount, &0u32);
 }
 
 pub fn require_admin(env: &Env, caller: &Address) {
     caller.require_auth();
-    let admin: Address = env.storage().instance()
+    let admin: Address = env
+        .storage()
+        .instance()
         .get(&GovernanceDataKey::Admin)
         .unwrap_or_else(|| panic_with_error!(env, GovernanceError::NotInitialized));
     if admin != *caller {
@@ -111,7 +135,9 @@ pub fn create_proposal(
         panic_with_error!(env, GovernanceError::InvalidInput);
     }
 
-    let count: u32 = env.storage().instance()
+    let count: u32 = env
+        .storage()
+        .instance()
         .get(&GovernanceDataKey::ProposalCount)
         .unwrap_or_else(|| panic_with_error!(env, GovernanceError::NotInitialized));
 
@@ -133,8 +159,12 @@ pub fn create_proposal(
         deadline,
     };
 
-    env.storage().persistent().set(&GovernanceDataKey::Proposal(new_id), &proposal);
-    env.storage().instance().set(&GovernanceDataKey::ProposalCount, &new_id);
+    env.storage()
+        .persistent()
+        .set(&GovernanceDataKey::Proposal(new_id), &proposal);
+    env.storage()
+        .instance()
+        .set(&GovernanceDataKey::ProposalCount, &new_id);
 
     GovernanceEvents::proposal_created(env, new_id, &proposer, &config_key, &config_value);
 
@@ -144,7 +174,9 @@ pub fn create_proposal(
 pub fn vote_proposal(env: &Env, voter: Address, proposal_id: u32) {
     voter.require_auth();
 
-    let mut proposal: Proposal = env.storage().persistent()
+    let mut proposal: Proposal = env
+        .storage()
+        .persistent()
         .get(&GovernanceDataKey::Proposal(proposal_id))
         .unwrap_or_else(|| panic_with_error!(env, GovernanceError::ProposalNotFound));
 
@@ -164,10 +196,13 @@ pub fn vote_proposal(env: &Env, voter: Address, proposal_id: u32) {
     }
 
     env.storage().persistent().set(&vote_key, &true);
-    proposal.approvals = proposal.approvals
+    proposal.approvals = proposal
+        .approvals
         .checked_add(1)
         .unwrap_or_else(|| panic_with_error!(env, GovernanceError::Overflow));
-    env.storage().persistent().set(&GovernanceDataKey::Proposal(proposal_id), &proposal);
+    env.storage()
+        .persistent()
+        .set(&GovernanceDataKey::Proposal(proposal_id), &proposal);
 
     GovernanceEvents::voted(env, proposal_id, &voter);
 }
@@ -175,7 +210,9 @@ pub fn vote_proposal(env: &Env, voter: Address, proposal_id: u32) {
 pub fn execute_proposal(env: &Env, caller: Address, proposal_id: u32) {
     caller.require_auth(); // Anyone can trigger execution if conditions met, but auth required to trace
 
-    let mut proposal: Proposal = env.storage().persistent()
+    let mut proposal: Proposal = env
+        .storage()
+        .persistent()
         .get(&GovernanceDataKey::Proposal(proposal_id))
         .unwrap_or_else(|| panic_with_error!(env, GovernanceError::ProposalNotFound));
 
@@ -187,7 +224,9 @@ pub fn execute_proposal(env: &Env, caller: Address, proposal_id: u32) {
         panic_with_error!(env, GovernanceError::ProposalExpired);
     }
 
-    let required_approvals: u32 = env.storage().instance()
+    let required_approvals: u32 = env
+        .storage()
+        .instance()
         .get(&GovernanceDataKey::RequiredApprovals)
         .unwrap_or_else(|| panic_with_error!(env, GovernanceError::NotInitialized));
 
@@ -196,12 +235,22 @@ pub fn execute_proposal(env: &Env, caller: Address, proposal_id: u32) {
     }
 
     // Apply configuration changes
-    env.storage().persistent().set(&GovernanceDataKey::ConfigValue(proposal.config_key.clone()), &proposal.config_value);
+    env.storage().persistent().set(
+        &GovernanceDataKey::ConfigValue(proposal.config_key.clone()),
+        &proposal.config_value,
+    );
 
     proposal.executed = true;
-    env.storage().persistent().set(&GovernanceDataKey::Proposal(proposal_id), &proposal);
+    env.storage()
+        .persistent()
+        .set(&GovernanceDataKey::Proposal(proposal_id), &proposal);
 
-    GovernanceEvents::proposal_executed(env, proposal_id, &proposal.config_key, &proposal.config_value);
+    GovernanceEvents::proposal_executed(
+        env,
+        proposal_id,
+        &proposal.config_key,
+        &proposal.config_value,
+    );
 }
 
 #[contract]
@@ -232,10 +281,14 @@ impl GovernanceContract {
     }
 
     pub fn get_proposal(env: Env, proposal_id: u32) -> Option<Proposal> {
-        env.storage().persistent().get(&GovernanceDataKey::Proposal(proposal_id))
+        env.storage()
+            .persistent()
+            .get(&GovernanceDataKey::Proposal(proposal_id))
     }
 
     pub fn get_config(env: Env, config_key: String) -> Option<String> {
-        env.storage().persistent().get(&GovernanceDataKey::ConfigValue(config_key))
+        env.storage()
+            .persistent()
+            .get(&GovernanceDataKey::ConfigValue(config_key))
     }
 }

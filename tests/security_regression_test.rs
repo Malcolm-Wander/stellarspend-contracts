@@ -222,7 +222,9 @@ mod delegation_tests {
         let delegate = Address::generate(&env);
 
         client.set_delegation(&owner, &delegate, &500i128);
-        client.consume_allowance(&owner, &delegate, &200i128).unwrap();
+        client
+            .consume_allowance(&owner, &delegate, &200i128)
+            .unwrap();
 
         let state = client.get_delegation(&owner, &delegate).unwrap();
         assert_eq!(state.spent, 200i128);
@@ -389,7 +391,10 @@ mod fraud_tests {
 
         let user = Address::generate(&env);
         let flagged = client.check_transaction(&user, &100i128);
-        assert!(flagged, "Expected transaction to be flagged with new threshold");
+        assert!(
+            flagged,
+            "Expected transaction to be flagged with new threshold"
+        );
     }
 
     // Sanity: transaction below threshold and daily limit is not flagged.

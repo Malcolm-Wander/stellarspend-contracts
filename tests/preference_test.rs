@@ -59,10 +59,22 @@ impl Ctx {
     fn set_default_prefs(&self, user: &Address) {
         self.client.set_preferences(
             user,
-            &ChannelPreference { enabled: true, event_mask: 0xFF },
-            &ChannelPreference { enabled: false, event_mask: 0 },
-            &ChannelPreference { enabled: false, event_mask: 0 },
-            &ChannelPreference { enabled: false, event_mask: 0 },
+            &ChannelPreference {
+                enabled: true,
+                event_mask: 0xFF,
+            },
+            &ChannelPreference {
+                enabled: false,
+                event_mask: 0,
+            },
+            &ChannelPreference {
+                enabled: false,
+                event_mask: 0,
+            },
+            &ChannelPreference {
+                enabled: false,
+                event_mask: 0,
+            },
         );
     }
 }
@@ -99,10 +111,22 @@ fn happy_set_preferences_stores_all_channels() {
 
     ctx.client.set_preferences(
         &user,
-        &ChannelPreference { enabled: true, event_mask: 0xFF },
-        &ChannelPreference { enabled: true, event_mask: 0x03 },
-        &ChannelPreference { enabled: false, event_mask: 0 },
-        &ChannelPreference { enabled: true, event_mask: 0x10 },
+        &ChannelPreference {
+            enabled: true,
+            event_mask: 0xFF,
+        },
+        &ChannelPreference {
+            enabled: true,
+            event_mask: 0x03,
+        },
+        &ChannelPreference {
+            enabled: false,
+            event_mask: 0,
+        },
+        &ChannelPreference {
+            enabled: true,
+            event_mask: 0x10,
+        },
     );
 
     let prefs = ctx.client.get_preferences(&user);
@@ -138,10 +162,22 @@ fn happy_set_preferences_overwrites_previous() {
     // First set: email enabled.
     ctx.client.set_preferences(
         &user,
-        &ChannelPreference { enabled: true, event_mask: 0xFF },
-        &ChannelPreference { enabled: true, event_mask: 0xFF },
-        &ChannelPreference { enabled: false, event_mask: 0 },
-        &ChannelPreference { enabled: false, event_mask: 0 },
+        &ChannelPreference {
+            enabled: true,
+            event_mask: 0xFF,
+        },
+        &ChannelPreference {
+            enabled: true,
+            event_mask: 0xFF,
+        },
+        &ChannelPreference {
+            enabled: false,
+            event_mask: 0,
+        },
+        &ChannelPreference {
+            enabled: false,
+            event_mask: 0,
+        },
     );
     assert!(ctx.client.get_preferences(&user).email.enabled);
 
@@ -159,11 +195,13 @@ fn happy_update_channel_toggles_enabled() {
     ctx.set_default_prefs(&user);
 
     // Enable email.
-    ctx.client.update_channel(&user, &NotificationChannel::Email, &true);
+    ctx.client
+        .update_channel(&user, &NotificationChannel::Email, &true);
     assert!(ctx.client.get_preferences(&user).email.enabled);
 
     // Disable it again.
-    ctx.client.update_channel(&user, &NotificationChannel::Email, &false);
+    ctx.client
+        .update_channel(&user, &NotificationChannel::Email, &false);
     assert!(!ctx.client.get_preferences(&user).email.enabled);
 }
 
@@ -175,21 +213,35 @@ fn happy_update_channel_preserves_event_mask() {
     // Set email with a specific mask.
     ctx.client.set_preferences(
         &user,
-        &ChannelPreference { enabled: true, event_mask: 0xFF },
-        &ChannelPreference { enabled: true, event_mask: 0x05 },
-        &ChannelPreference { enabled: false, event_mask: 0 },
-        &ChannelPreference { enabled: false, event_mask: 0 },
+        &ChannelPreference {
+            enabled: true,
+            event_mask: 0xFF,
+        },
+        &ChannelPreference {
+            enabled: true,
+            event_mask: 0x05,
+        },
+        &ChannelPreference {
+            enabled: false,
+            event_mask: 0,
+        },
+        &ChannelPreference {
+            enabled: false,
+            event_mask: 0,
+        },
     );
 
     // Disable the channel.
-    ctx.client.update_channel(&user, &NotificationChannel::Email, &false);
+    ctx.client
+        .update_channel(&user, &NotificationChannel::Email, &false);
     let prefs = ctx.client.get_preferences(&user);
     // Channel disabled but mask preserved.
     assert!(!prefs.email.enabled);
     assert_eq!(prefs.email.event_mask, 0x05);
 
     // Re-enable — mask should still be 0x05.
-    ctx.client.update_channel(&user, &NotificationChannel::Email, &true);
+    ctx.client
+        .update_channel(&user, &NotificationChannel::Email, &true);
     let prefs2 = ctx.client.get_preferences(&user);
     assert!(prefs2.email.enabled);
     assert_eq!(prefs2.email.event_mask, 0x05);
@@ -226,10 +278,22 @@ fn happy_update_event_type_enables_single_bit() {
     // Start with email channel enabled but no event types.
     ctx.client.set_preferences(
         &user,
-        &ChannelPreference { enabled: true, event_mask: 0xFF },
-        &ChannelPreference { enabled: true, event_mask: 0 },
-        &ChannelPreference { enabled: false, event_mask: 0 },
-        &ChannelPreference { enabled: false, event_mask: 0 },
+        &ChannelPreference {
+            enabled: true,
+            event_mask: 0xFF,
+        },
+        &ChannelPreference {
+            enabled: true,
+            event_mask: 0,
+        },
+        &ChannelPreference {
+            enabled: false,
+            event_mask: 0,
+        },
+        &ChannelPreference {
+            enabled: false,
+            event_mask: 0,
+        },
     );
 
     ctx.client.update_event_type(
@@ -239,17 +303,13 @@ fn happy_update_event_type_enables_single_bit() {
         &true,
     );
 
-    assert!(ctx.client.is_enabled(
-        &user,
-        &NotificationChannel::Email,
-        &EventType::Reward,
-    ));
+    assert!(ctx
+        .client
+        .is_enabled(&user, &NotificationChannel::Email, &EventType::Reward,));
     // Other event types still off.
-    assert!(!ctx.client.is_enabled(
-        &user,
-        &NotificationChannel::Email,
-        &EventType::Transfer,
-    ));
+    assert!(!ctx
+        .client
+        .is_enabled(&user, &NotificationChannel::Email, &EventType::Transfer,));
 }
 
 #[test]
@@ -259,10 +319,22 @@ fn happy_update_event_type_disables_single_bit() {
 
     ctx.client.set_preferences(
         &user,
-        &ChannelPreference { enabled: true, event_mask: 0xFF },
-        &ChannelPreference { enabled: true, event_mask: 0xFF },
-        &ChannelPreference { enabled: false, event_mask: 0 },
-        &ChannelPreference { enabled: false, event_mask: 0 },
+        &ChannelPreference {
+            enabled: true,
+            event_mask: 0xFF,
+        },
+        &ChannelPreference {
+            enabled: true,
+            event_mask: 0xFF,
+        },
+        &ChannelPreference {
+            enabled: false,
+            event_mask: 0,
+        },
+        &ChannelPreference {
+            enabled: false,
+            event_mask: 0,
+        },
     );
 
     // Disable FraudAlert on email.
@@ -273,17 +345,13 @@ fn happy_update_event_type_disables_single_bit() {
         &false,
     );
 
-    assert!(!ctx.client.is_enabled(
-        &user,
-        &NotificationChannel::Email,
-        &EventType::FraudAlert,
-    ));
+    assert!(!ctx
+        .client
+        .is_enabled(&user, &NotificationChannel::Email, &EventType::FraudAlert,));
     // Others still on.
-    assert!(ctx.client.is_enabled(
-        &user,
-        &NotificationChannel::Email,
-        &EventType::Transfer,
-    ));
+    assert!(ctx
+        .client
+        .is_enabled(&user, &NotificationChannel::Email, &EventType::Transfer,));
 }
 
 #[test]
@@ -316,25 +384,51 @@ fn happy_is_enabled_respects_channel_and_event() {
 
     ctx.client.set_preferences(
         &user,
-        &ChannelPreference { enabled: true, event_mask: 0xFF },
-        &ChannelPreference { enabled: true, event_mask: 0x01 }, // only Transfer
-        &ChannelPreference { enabled: false, event_mask: 0xFF }, // disabled
-        &ChannelPreference { enabled: false, event_mask: 0 },
+        &ChannelPreference {
+            enabled: true,
+            event_mask: 0xFF,
+        },
+        &ChannelPreference {
+            enabled: true,
+            event_mask: 0x01,
+        }, // only Transfer
+        &ChannelPreference {
+            enabled: false,
+            event_mask: 0xFF,
+        }, // disabled
+        &ChannelPreference {
+            enabled: false,
+            event_mask: 0,
+        },
     );
 
     // OnChain: all events enabled.
-    assert!(ctx.client.is_enabled(&user, &NotificationChannel::OnChain, &EventType::Transfer));
-    assert!(ctx.client.is_enabled(&user, &NotificationChannel::OnChain, &EventType::SystemAlert));
+    assert!(ctx
+        .client
+        .is_enabled(&user, &NotificationChannel::OnChain, &EventType::Transfer));
+    assert!(ctx.client.is_enabled(
+        &user,
+        &NotificationChannel::OnChain,
+        &EventType::SystemAlert
+    ));
 
     // Email: only Transfer.
-    assert!(ctx.client.is_enabled(&user, &NotificationChannel::Email, &EventType::Transfer));
-    assert!(!ctx.client.is_enabled(&user, &NotificationChannel::Email, &EventType::Reward));
+    assert!(ctx
+        .client
+        .is_enabled(&user, &NotificationChannel::Email, &EventType::Transfer));
+    assert!(!ctx
+        .client
+        .is_enabled(&user, &NotificationChannel::Email, &EventType::Reward));
 
     // Push: channel disabled → nothing passes.
-    assert!(!ctx.client.is_enabled(&user, &NotificationChannel::Push, &EventType::Transfer));
+    assert!(!ctx
+        .client
+        .is_enabled(&user, &NotificationChannel::Push, &EventType::Transfer));
 
     // SMS: disabled and no mask.
-    assert!(!ctx.client.is_enabled(&user, &NotificationChannel::Sms, &EventType::Transfer));
+    assert!(!ctx
+        .client
+        .is_enabled(&user, &NotificationChannel::Sms, &EventType::Transfer));
 }
 
 #[test]
@@ -344,10 +438,22 @@ fn happy_active_channels_for_returns_correct_set() {
 
     ctx.client.set_preferences(
         &user,
-        &ChannelPreference { enabled: true, event_mask: 0xFF },
-        &ChannelPreference { enabled: true, event_mask: 0x02 }, // Reward only
-        &ChannelPreference { enabled: true, event_mask: 0xFF },
-        &ChannelPreference { enabled: false, event_mask: 0 },
+        &ChannelPreference {
+            enabled: true,
+            event_mask: 0xFF,
+        },
+        &ChannelPreference {
+            enabled: true,
+            event_mask: 0x02,
+        }, // Reward only
+        &ChannelPreference {
+            enabled: true,
+            event_mask: 0xFF,
+        },
+        &ChannelPreference {
+            enabled: false,
+            event_mask: 0,
+        },
     );
 
     // Transfer: OnChain + Push (email only has Reward).
@@ -371,13 +477,27 @@ fn dispatch_returns_count_of_channels_notified() {
     // Enable OnChain and Push for Transfer.
     ctx.client.set_preferences(
         &user,
-        &ChannelPreference { enabled: true, event_mask: 0xFF },
-        &ChannelPreference { enabled: false, event_mask: 0 },
-        &ChannelPreference { enabled: true, event_mask: 0xFF },
-        &ChannelPreference { enabled: false, event_mask: 0 },
+        &ChannelPreference {
+            enabled: true,
+            event_mask: 0xFF,
+        },
+        &ChannelPreference {
+            enabled: false,
+            event_mask: 0,
+        },
+        &ChannelPreference {
+            enabled: true,
+            event_mask: 0xFF,
+        },
+        &ChannelPreference {
+            enabled: false,
+            event_mask: 0,
+        },
     );
 
-    let count = ctx.client.dispatch_notification(&user, &EventType::Transfer, &42u64);
+    let count = ctx
+        .client
+        .dispatch_notification(&user, &EventType::Transfer, &42u64);
     assert_eq!(count, 2); // OnChain + Push
 }
 
@@ -389,13 +509,27 @@ fn dispatch_zero_when_no_channels_match() {
     // All channels disabled.
     ctx.client.set_preferences(
         &user,
-        &ChannelPreference { enabled: false, event_mask: 0 },
-        &ChannelPreference { enabled: false, event_mask: 0 },
-        &ChannelPreference { enabled: false, event_mask: 0 },
-        &ChannelPreference { enabled: false, event_mask: 0 },
+        &ChannelPreference {
+            enabled: false,
+            event_mask: 0,
+        },
+        &ChannelPreference {
+            enabled: false,
+            event_mask: 0,
+        },
+        &ChannelPreference {
+            enabled: false,
+            event_mask: 0,
+        },
+        &ChannelPreference {
+            enabled: false,
+            event_mask: 0,
+        },
     );
 
-    let count = ctx.client.dispatch_notification(&user, &EventType::Reward, &1u64);
+    let count = ctx
+        .client
+        .dispatch_notification(&user, &EventType::Reward, &1u64);
     assert_eq!(count, 0);
 }
 
@@ -405,7 +539,9 @@ fn dispatch_default_user_gets_only_on_chain() {
     // User who has never set preferences — defaults apply.
     let user = Address::generate(&ctx.env);
 
-    let count = ctx.client.dispatch_notification(&user, &EventType::Transfer, &0u64);
+    let count = ctx
+        .client
+        .dispatch_notification(&user, &EventType::Transfer, &0u64);
     assert_eq!(count, 1); // only OnChain by default
 }
 
@@ -417,18 +553,34 @@ fn dispatch_respects_event_type_mask_not_just_channel() {
     // Email enabled but only for Reward (bit 1 = 0x02).
     ctx.client.set_preferences(
         &user,
-        &ChannelPreference { enabled: true, event_mask: 0xFF },
-        &ChannelPreference { enabled: true, event_mask: 0x02 }, // Reward only
-        &ChannelPreference { enabled: false, event_mask: 0 },
-        &ChannelPreference { enabled: false, event_mask: 0 },
+        &ChannelPreference {
+            enabled: true,
+            event_mask: 0xFF,
+        },
+        &ChannelPreference {
+            enabled: true,
+            event_mask: 0x02,
+        }, // Reward only
+        &ChannelPreference {
+            enabled: false,
+            event_mask: 0,
+        },
+        &ChannelPreference {
+            enabled: false,
+            event_mask: 0,
+        },
     );
 
     // Transfer: only OnChain (email mask excludes Transfer).
-    let t_count = ctx.client.dispatch_notification(&user, &EventType::Transfer, &1u64);
+    let t_count = ctx
+        .client
+        .dispatch_notification(&user, &EventType::Transfer, &1u64);
     assert_eq!(t_count, 1);
 
     // Reward: OnChain + Email.
-    let r_count = ctx.client.dispatch_notification(&user, &EventType::Reward, &2u64);
+    let r_count = ctx
+        .client
+        .dispatch_notification(&user, &EventType::Reward, &2u64);
     assert_eq!(r_count, 2);
 }
 
@@ -439,10 +591,22 @@ fn dispatch_all_channels_all_events() {
 
     ctx.client.set_preferences(
         &user,
-        &ChannelPreference { enabled: true, event_mask: 0xFF },
-        &ChannelPreference { enabled: true, event_mask: 0xFF },
-        &ChannelPreference { enabled: true, event_mask: 0xFF },
-        &ChannelPreference { enabled: true, event_mask: 0xFF },
+        &ChannelPreference {
+            enabled: true,
+            event_mask: 0xFF,
+        },
+        &ChannelPreference {
+            enabled: true,
+            event_mask: 0xFF,
+        },
+        &ChannelPreference {
+            enabled: true,
+            event_mask: 0xFF,
+        },
+        &ChannelPreference {
+            enabled: true,
+            event_mask: 0xFF,
+        },
     );
 
     for event in [
@@ -483,15 +647,28 @@ fn edge_each_event_type_maps_to_unique_bit() {
         let mask = 1u32 << i;
         ctx.client.set_preferences(
             &user,
-            &ChannelPreference { enabled: true, event_mask: 0xFF },
-            &ChannelPreference { enabled: true, event_mask: mask },
-            &ChannelPreference { enabled: false, event_mask: 0 },
-            &ChannelPreference { enabled: false, event_mask: 0 },
+            &ChannelPreference {
+                enabled: true,
+                event_mask: 0xFF,
+            },
+            &ChannelPreference {
+                enabled: true,
+                event_mask: mask,
+            },
+            &ChannelPreference {
+                enabled: false,
+                event_mask: 0,
+            },
+            &ChannelPreference {
+                enabled: false,
+                event_mask: 0,
+            },
         );
 
         // Only this event should pass on email.
         assert!(
-            ctx.client.is_enabled(&user, &NotificationChannel::Email, &event),
+            ctx.client
+                .is_enabled(&user, &NotificationChannel::Email, &event),
             "bit {} should enable event {:?}",
             i,
             event
@@ -501,7 +678,8 @@ fn edge_each_event_type_maps_to_unique_bit() {
         for (j, &other_event) in events.iter().enumerate() {
             if j != i {
                 assert!(
-                    !ctx.client.is_enabled(&user, &NotificationChannel::Email, &other_event),
+                    !ctx.client
+                        .is_enabled(&user, &NotificationChannel::Email, &other_event),
                     "bit {} should NOT enable event {:?}",
                     i,
                     other_event
@@ -518,14 +696,32 @@ fn edge_zero_mask_disables_all_events_even_when_channel_enabled() {
 
     ctx.client.set_preferences(
         &user,
-        &ChannelPreference { enabled: true, event_mask: 0xFF },
-        &ChannelPreference { enabled: true, event_mask: 0x00 }, // enabled but no events
-        &ChannelPreference { enabled: false, event_mask: 0 },
-        &ChannelPreference { enabled: false, event_mask: 0 },
+        &ChannelPreference {
+            enabled: true,
+            event_mask: 0xFF,
+        },
+        &ChannelPreference {
+            enabled: true,
+            event_mask: 0x00,
+        }, // enabled but no events
+        &ChannelPreference {
+            enabled: false,
+            event_mask: 0,
+        },
+        &ChannelPreference {
+            enabled: false,
+            event_mask: 0,
+        },
     );
 
-    for event in [EventType::Transfer, EventType::Reward, EventType::SystemAlert] {
-        assert!(!ctx.client.is_enabled(&user, &NotificationChannel::Email, &event));
+    for event in [
+        EventType::Transfer,
+        EventType::Reward,
+        EventType::SystemAlert,
+    ] {
+        assert!(!ctx
+            .client
+            .is_enabled(&user, &NotificationChannel::Email, &event));
     }
 }
 
@@ -536,10 +732,22 @@ fn edge_full_mask_enables_all_events() {
 
     ctx.client.set_preferences(
         &user,
-        &ChannelPreference { enabled: true, event_mask: 0xFF },
-        &ChannelPreference { enabled: true, event_mask: 0xFF },
-        &ChannelPreference { enabled: false, event_mask: 0 },
-        &ChannelPreference { enabled: false, event_mask: 0 },
+        &ChannelPreference {
+            enabled: true,
+            event_mask: 0xFF,
+        },
+        &ChannelPreference {
+            enabled: true,
+            event_mask: 0xFF,
+        },
+        &ChannelPreference {
+            enabled: false,
+            event_mask: 0,
+        },
+        &ChannelPreference {
+            enabled: false,
+            event_mask: 0,
+        },
     );
 
     for event in [
@@ -552,7 +760,9 @@ fn edge_full_mask_enables_all_events() {
         EventType::RecurringContribution,
         EventType::SystemAlert,
     ] {
-        assert!(ctx.client.is_enabled(&user, &NotificationChannel::Email, &event));
+        assert!(ctx
+            .client
+            .is_enabled(&user, &NotificationChannel::Email, &event));
     }
 }
 
@@ -563,8 +773,18 @@ fn edge_toggle_event_type_idempotent() {
     ctx.set_default_prefs(&user);
 
     // Enable Transfer on email twice — should not create duplicate bits.
-    ctx.client.update_event_type(&user, &NotificationChannel::Email, &EventType::Transfer, &true);
-    ctx.client.update_event_type(&user, &NotificationChannel::Email, &EventType::Transfer, &true);
+    ctx.client.update_event_type(
+        &user,
+        &NotificationChannel::Email,
+        &EventType::Transfer,
+        &true,
+    );
+    ctx.client.update_event_type(
+        &user,
+        &NotificationChannel::Email,
+        &EventType::Transfer,
+        &true,
+    );
 
     let prefs = ctx.client.get_preferences(&user);
     let expected_bit = 1u32 << (EventType::Transfer as u32);
@@ -572,8 +792,18 @@ fn edge_toggle_event_type_idempotent() {
     assert_eq!(prefs.email.event_mask & expected_bit, expected_bit);
 
     // Disable twice — bit should be clear.
-    ctx.client.update_event_type(&user, &NotificationChannel::Email, &EventType::Transfer, &false);
-    ctx.client.update_event_type(&user, &NotificationChannel::Email, &EventType::Transfer, &false);
+    ctx.client.update_event_type(
+        &user,
+        &NotificationChannel::Email,
+        &EventType::Transfer,
+        &false,
+    );
+    ctx.client.update_event_type(
+        &user,
+        &NotificationChannel::Email,
+        &EventType::Transfer,
+        &false,
+    );
 
     let prefs2 = ctx.client.get_preferences(&user);
     assert_eq!(prefs2.email.event_mask & expected_bit, 0);
@@ -584,10 +814,12 @@ fn edge_update_count_tracks_all_mutation_types() {
     let ctx = Ctx::new();
     let user = Address::generate(&ctx.env);
 
-    ctx.set_default_prefs(&user);                                                           // 1
-    ctx.client.update_channel(&user, &NotificationChannel::Email, &true);                   // 2
-    ctx.client.update_event_type(&user, &NotificationChannel::Push, &EventType::Reward, &true); // 3
-    ctx.set_default_prefs(&user);                                                           // 4
+    ctx.set_default_prefs(&user); // 1
+    ctx.client
+        .update_channel(&user, &NotificationChannel::Email, &true); // 2
+    ctx.client
+        .update_event_type(&user, &NotificationChannel::Push, &EventType::Reward, &true); // 3
+    ctx.set_default_prefs(&user); // 4
 
     let prefs = ctx.client.get_preferences(&user);
     assert_eq!(prefs.update_count, 4);
@@ -602,7 +834,8 @@ fn edge_updated_at_reflects_latest_mutation_timestamp() {
     ctx.set_default_prefs(&user);
 
     ctx.set_timestamp(5_000);
-    ctx.client.update_channel(&user, &NotificationChannel::Push, &true);
+    ctx.client
+        .update_channel(&user, &NotificationChannel::Push, &true);
 
     let prefs = ctx.client.get_preferences(&user);
     assert_eq!(prefs.updated_at, 5_000);
@@ -619,15 +852,31 @@ fn edge_users_have_independent_preferences() {
     // Alice enables all channels; Bob keeps defaults.
     ctx.client.set_preferences(
         &alice,
-        &ChannelPreference { enabled: true, event_mask: 0xFF },
-        &ChannelPreference { enabled: true, event_mask: 0xFF },
-        &ChannelPreference { enabled: true, event_mask: 0xFF },
-        &ChannelPreference { enabled: true, event_mask: 0xFF },
+        &ChannelPreference {
+            enabled: true,
+            event_mask: 0xFF,
+        },
+        &ChannelPreference {
+            enabled: true,
+            event_mask: 0xFF,
+        },
+        &ChannelPreference {
+            enabled: true,
+            event_mask: 0xFF,
+        },
+        &ChannelPreference {
+            enabled: true,
+            event_mask: 0xFF,
+        },
     );
 
     // Bob: only OnChain (default).
-    let alice_count = ctx.client.dispatch_notification(&alice, &EventType::Transfer, &1u64);
-    let bob_count = ctx.client.dispatch_notification(&bob, &EventType::Transfer, &2u64);
+    let alice_count = ctx
+        .client
+        .dispatch_notification(&alice, &EventType::Transfer, &1u64);
+    let bob_count = ctx
+        .client
+        .dispatch_notification(&bob, &EventType::Transfer, &2u64);
 
     assert_eq!(alice_count, 4);
     assert_eq!(bob_count, 1);
@@ -643,7 +892,8 @@ fn edge_modifying_alice_prefs_does_not_affect_bob() {
     ctx.set_default_prefs(&bob);
 
     // Alice enables push.
-    ctx.client.update_channel(&alice, &NotificationChannel::Push, &true);
+    ctx.client
+        .update_channel(&alice, &NotificationChannel::Push, &true);
 
     assert!(ctx.client.get_preferences(&alice).push.enabled);
     assert!(!ctx.client.get_preferences(&bob).push.enabled);
@@ -666,10 +916,22 @@ fn auth_set_preferences_requires_auth() {
     let user = Address::generate(&env);
     client.set_preferences(
         &user,
-        &ChannelPreference { enabled: true, event_mask: 0xFF },
-        &ChannelPreference { enabled: false, event_mask: 0 },
-        &ChannelPreference { enabled: false, event_mask: 0 },
-        &ChannelPreference { enabled: false, event_mask: 0 },
+        &ChannelPreference {
+            enabled: true,
+            event_mask: 0xFF,
+        },
+        &ChannelPreference {
+            enabled: false,
+            event_mask: 0,
+        },
+        &ChannelPreference {
+            enabled: false,
+            event_mask: 0,
+        },
+        &ChannelPreference {
+            enabled: false,
+            event_mask: 0,
+        },
     );
 }
 

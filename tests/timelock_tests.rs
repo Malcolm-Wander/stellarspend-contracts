@@ -53,14 +53,8 @@ fn test_schedule_timelocked_transaction_stores_record_and_emits_event() {
 
     let execute_at = env.ledger().timestamp() + 60;
 
-    let scheduled: TimelockedTx = client.schedule_timelocked_transaction(
-        &from,
-        &to,
-        &amount,
-        &payload,
-        &asset,
-        &execute_at,
-    );
+    let scheduled: TimelockedTx =
+        client.schedule_timelocked_transaction(&from, &to, &amount, &payload, &asset, &execute_at);
 
     assert_eq!(scheduled.from, from);
     assert_eq!(scheduled.to, to);
@@ -134,14 +128,8 @@ fn test_cannot_execute_before_execute_at() {
     let asset: Option<Address> = None;
 
     let execute_at = env.ledger().timestamp() + 300;
-    let scheduled = client.schedule_timelocked_transaction(
-        &from,
-        &to,
-        &amount,
-        &payload,
-        &asset,
-        &execute_at,
-    );
+    let scheduled =
+        client.schedule_timelocked_transaction(&from, &to, &amount, &payload, &asset, &execute_at);
 
     // Even the admin cannot execute before the scheduled time.
     client.execute_timelocked_transaction(&admin, &scheduled.id);
@@ -162,14 +150,8 @@ fn test_execute_after_execute_at_moves_balance_and_marks_executed() {
     let asset: Option<Address> = None;
 
     let execute_at = env.ledger().timestamp() + 10;
-    let scheduled = client.schedule_timelocked_transaction(
-        &from,
-        &to,
-        &amount,
-        &payload,
-        &asset,
-        &execute_at,
-    );
+    let scheduled =
+        client.schedule_timelocked_transaction(&from, &to, &amount, &payload, &asset, &execute_at);
 
     // Advance time to just after execute_at.
     env.ledger().set_timestamp(execute_at + 1);
@@ -208,14 +190,8 @@ fn test_cancel_before_execution_prevents_later_execution() {
     let asset: Option<Address> = None;
 
     let execute_at = env.ledger().timestamp() + 100;
-    let scheduled = client.schedule_timelocked_transaction(
-        &from,
-        &to,
-        &amount,
-        &payload,
-        &asset,
-        &execute_at,
-    );
+    let scheduled =
+        client.schedule_timelocked_transaction(&from, &to, &amount, &payload, &asset, &execute_at);
 
     // User cancels before execution window.
     client.cancel_timelocked_transaction(&from, &scheduled.id);
@@ -248,14 +224,8 @@ fn test_execute_fails_after_cancellation() {
     let asset: Option<Address> = None;
     let execute_at = env.ledger().timestamp() + 20;
 
-    let scheduled = client.schedule_timelocked_transaction(
-        &from,
-        &to,
-        &amount,
-        &payload,
-        &asset,
-        &execute_at,
-    );
+    let scheduled =
+        client.schedule_timelocked_transaction(&from, &to, &amount, &payload, &asset, &execute_at);
 
     client.cancel_timelocked_transaction(&from, &scheduled.id);
 
@@ -278,14 +248,8 @@ fn test_only_owner_or_admin_can_cancel() {
     let asset: Option<Address> = None;
 
     let execute_at = env.ledger().timestamp() + 50;
-    let scheduled = client.schedule_timelocked_transaction(
-        &from,
-        &to,
-        &amount,
-        &payload,
-        &asset,
-        &execute_at,
-    );
+    let scheduled =
+        client.schedule_timelocked_transaction(&from, &to, &amount, &payload, &asset, &execute_at);
 
     let outsider = Address::generate(&env);
     client.cancel_timelocked_transaction(&outsider, &scheduled.id);
@@ -305,17 +269,10 @@ fn test_only_owner_or_admin_can_execute() {
     let asset: Option<Address> = None;
     let execute_at = env.ledger().timestamp() + 50;
 
-    let scheduled = client.schedule_timelocked_transaction(
-        &from,
-        &to,
-        &amount,
-        &payload,
-        &asset,
-        &execute_at,
-    );
+    let scheduled =
+        client.schedule_timelocked_transaction(&from, &to, &amount, &payload, &asset, &execute_at);
 
     env.ledger().set_timestamp(execute_at + 1);
     let outsider = Address::generate(&env);
     client.execute_timelocked_transaction(&outsider, &scheduled.id);
 }
-

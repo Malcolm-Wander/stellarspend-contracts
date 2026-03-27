@@ -196,3 +196,220 @@ fn test_user_fees_accrued_large_amounts() {
     assert_eq!(client.get_user_fees_accrued(&user), 5_000_000_000);
 }
 
+#[test]
+fn test_refund_fee_successful() {
+    let (env, admin, client) = setup_fee_contract();
+    let user = Address::generate(&env);
+    
+    // User pays 1_000, fee = 50
+    client.deduct_fee(&user, &1_000);
+    assert_eq!(client.get_user_fees_accrued(&user), 50);
+    assert_eq!(client.get_total_collected(), 50);
+    
+    // Admin refunds 30 out of 50
+    let refunded = client.refund_fee(&admin, &user, &30, &"transaction_failed");
+    assert_eq!(refunded, 30);
+    
+    // User fee should be reduced to 20
+    assert_eq!(client.get_user_fees_accrued(&user), 20);
+    assert_eq!(client.get_total_collected(), 20);
+}
+
+#[test]
+fn test_refund_fee_full_refund() {
+    let (env, admin, client) = setup_fee_contract();
+    let user = Address::generate(&env);
+    
+    // User pays 1_000, fee = 50
+    client.deduct_fee(&user, &1_000);
+    assert_eq!(client.get_user_fees_accrued(&user), 50);
+    assert_eq!(client.get_total_collected(), 50);
+    
+    // Admin refunds entire fee
+    let refunded = client.refund_fee(&admin, &user, &50, &"transaction_reversed");
+    assert_eq!(refunded, 50);
+    
+    // User fee should be 0
+    assert_eq!(client.get_user_fees_accrued(&user), 0);
+    assert_eq!(client.get_total_collected(), 0);
+}
+
+#[test]
+fn test_refund_fee_invalid_amount_zero() {
+    let (env, admin, client) = setup_fee_contract();
+    let user = Address::generate(&env);
+    
+    // User pays 1_000, fee = 50
+    client.deduct_fee(&user, &1_000);
+    
+    // Should panic on zero refund amount
+    let result = std::panic::catch_unwind(|| {
+        client.refund_fee(&admin, &user, &0, &"invalid");
+    });
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_refund_fee_invalid_amount_negative() {
+    let (env, admin, client) = setup_fee_contract();
+    let user = Address::generate(&env);
+    
+    // User pays 1_000, fee = 50
+    client.deduct_fee(&user, &1_000);
+    
+    // Should panic on negative refund amount
+    let result = std::panic::catch_unwind(|| {
+        client.refund_fee(&admin, &user, &-10, &"invalid");
+    });
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_refund_fee_insufficient_balance() {
+    let (env, admin, client) = setup_fee_contract();
+    let user = Address::generate(&env);
+    
+    // User pays 1_000, fee = 50
+    client.deduct_fee(&user, &1_000);
+    assert_eq!(client.get_user_fees_accrued(&user), 50);
+    
+    // Should panic when trying to refund more than accumulated
+    let result = std::panic::catch_unwind(|| {
+        client.refund_fee(&admin, &user, &100, &"exceeds_balance");
+    });
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_refund_fee_insufficient_balance_no_prior_fees() {
+    let (env, admin, client) = setup_fee_contract();
+    let user = Address::generate(&env);
+    
+    // User has no accumulated fees (0)
+    assert_eq!(client.get_user_fees_accrued(&user), 0);
+    
+    // Should panic when trying to refund any amount
+    let result = std::panic::catch_unwind(|| {
+        client.refund_fee(&admin, &user, &10, &"no_fees");
+    });
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_refund_fee_unauthorized() {
+    let (env, admin, client) = setup_fee_contract();
+    let user = Address::generate(&env);
+    let attacker = Address::generate(&env);
+    
+    // User pays 1_000, fee = 50
+    client.deduct_fee(&user, &1_000);
+    
+    // Should panic because attacker is not admin
+    let result = std::panic::catch_unwind(|| {
+        client.refund_fee(&attacker, &user, &20, &"unauthorized");
+    });
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_refund_fee_multiple_users() {
+    let (env, admin, client) = setup_fee_contract();
+    let user1 = Address::generate(&env);
+    let user2 = Address::generate(&env);
+    
+    // User1 and User2 both pay fees
+    client.deduct_fee(&user1, &1_000); // fee = 50
+    client.deduct_fee(&user2, &2_000); // fee = 100
+    
+    assert_eq!(client.get_user_fees_accrued(&user1), 50);
+    assert_eq!(client.get_user_fees_accrued(&user2), 100);
+    assert_eq!(client.get_total_collected(), 150);
+    
+    // Admin refunds user1 partially
+    client.refund_fee(&admin, &user1, &30, &"partial_refund");
+    
+    assert_eq!(client.get_user_fees_accrued(&user1), 20);
+    assert_eq!(client.get_user_fees_accrued(&user2), 100);
+    assert_eq!(client.get_total_collected(), 120);
+}
+
+#[test]
+fn test_refund_fee_multiple_refunds_same_user() {
+    let (env, admin, client) = setup_fee_contract();
+    let user = Address::generate(&env);
+    
+    // User pays 1_000, fee = 50
+    client.deduct_fee(&user, &1_000);
+    assert_eq!(client.get_user_fees_accrued(&user), 50);
+    assert_eq!(client.get_total_collected(), 50);
+    
+    // First refund: 20
+    client.refund_fee(&admin, &user, &20, &"partial_refund_1");
+    assert_eq!(client.get_user_fees_accrued(&user), 30);
+    assert_eq!(client.get_total_collected(), 30);
+    
+    // Second refund: 15
+    client.refund_fee(&admin, &user, &15, &"partial_refund_2");
+    assert_eq!(client.get_user_fees_accrued(&user), 15);
+    assert_eq!(client.get_total_collected(), 15);
+    
+    // Final refund: remaining 15
+    client.refund_fee(&admin, &user, &15, &"final_refund");
+    assert_eq!(client.get_user_fees_accrued(&user), 0);
+    assert_eq!(client.get_total_collected(), 0);
+}
+
+#[test]
+fn test_refund_fee_emits_event() {
+    let (env, admin, client) = setup_fee_contract();
+    let user = Address::generate(&env);
+    
+    // User pays 1_000, fee = 50
+    client.deduct_fee(&user, &1_000);
+    
+    // Admin refunds 30
+    client.refund_fee(&admin, &user, &30, &"transaction_failed");
+    
+    // Check event was emitted
+    let events = env.events().all();
+    assert!(events
+        .iter()
+        .any(|e| e.topics.0 == "fee" && e.topics.1 == "refunded"));
+}
+
+#[test]
+fn test_refund_fee_with_subsequent_transactions() {
+    let (env, admin, client) = setup_fee_contract();
+    let user = Address::generate(&env);
+    
+    // User pays 1_000, fee = 50
+    client.deduct_fee(&user, &1_000);
+    assert_eq!(client.get_user_fees_accrued(&user), 50);
+    
+    // Admin refunds 30
+    client.refund_fee(&admin, &user, &30, &"partial_refund");
+    assert_eq!(client.get_user_fees_accrued(&user), 20);
+    
+    // User makes another transaction, fee = 50
+    client.deduct_fee(&user, &1_000);
+    assert_eq!(client.get_user_fees_accrued(&user), 70);
+    assert_eq!(client.get_total_collected(), 70);
+}
+
+#[test]
+fn test_refund_fee_alternate_refund_reasons() {
+    let (env, admin, client) = setup_fee_contract();
+    let user = Address::generate(&env);
+    
+    // User pays 1_000, fee = 50
+    client.deduct_fee(&user, &1_000);
+    
+    // Refund with different reasons for audit trail
+    client.refund_fee(&admin, &user, &10, &"failed_transaction");
+    client.refund_fee(&admin, &user, &15, &"customer_complaint");
+    client.refund_fee(&admin, &user, &25, &"system_error");
+    
+    assert_eq!(client.get_user_fees_accrued(&user), 0);
+    assert_eq!(client.get_total_collected(), 0);
+}
+

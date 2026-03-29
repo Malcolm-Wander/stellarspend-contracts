@@ -1,5 +1,6 @@
 //! StellarSpend fee contract crate root: re-exports the fee contract and contract metrics types.
 
+pub mod auth;
 pub mod fee;
 
 pub use fee::*;

@@ -80,10 +80,10 @@ pub struct PriorityFeeConfig {
 impl Default for PriorityFeeConfig {
     fn default() -> Self {
         Self {
-            low_multiplier_bps: 8000,      // 0.8x - 20% discount
-            medium_multiplier_bps: 10000,  // 1.0x - base rate
-            high_multiplier_bps: 15000,    // 1.5x - 50% premium
-            urgent_multiplier_bps: 20000,  // 2.0x - 100% premium
+            low_multiplier_bps: 8000,     // 0.8x - 20% discount
+            medium_multiplier_bps: 10000, // 1.0x - base rate
+            high_multiplier_bps: 15000,   // 1.5x - 50% premium
+            urgent_multiplier_bps: 20000, // 2.0x - 100% premium
         }
     }
 }
@@ -155,6 +155,18 @@ pub struct BatchFeeResult {
     pub results: Vec<FeeTransactionResult>,
     /// Sum of all fees charged across the batch
     pub total_fees: i128,
+}
+
+/// Aggregated on-chain metrics for the fee contract (read-only snapshot).
+#[derive(Clone, Debug)]
+#[contracttype]
+pub struct FeeContractMetrics {
+    /// Cumulative fees collected across all deduction paths; matches [`FeeContract::get_total_collected`].
+    pub total_fees_collected: i128,
+    /// Default fee rate in basis points when a fee config exists; otherwise `0`.
+    pub default_fee_rate_bps: u32,
+    pub ledger_timestamp: u64,
+    pub ledger_sequence: u32,
 }
 
 /// Configuration for a specific asset's fee settings.
@@ -264,19 +276,33 @@ impl FeeEvents {
         let topics = (symbol_short!("fee"), symbol_short!("deducted"));
         env.events().publish(
             topics,
-            (payer.clone(), amount, fee, priority.to_u32(), env.ledger().timestamp()),
+            (
+                payer.clone(),
+                amount,
+                fee,
+                priority.to_u32(),
+                env.ledger().timestamp(),
+            ),
         );
     }
 
     pub fn config_updated(env: &Env, admin: &Address, fee_rate: u32) {
         let topics = (symbol_short!("fee"), symbol_short!("cfg_upd"));
-        env.events().publish(topics, (admin.clone(), fee_rate, env.ledger().timestamp()));
+        env.events()
+            .publish(topics, (admin.clone(), fee_rate, env.ledger().timestamp()));
     }
 
     pub fn asset_config_updated(env: &Env, admin: &Address, asset: &Address, fee_rate: u32) {
         let topics = (symbol_short!("fee"), symbol_short!("ast_cfg"));
-        env.events()
-            .publish(topics, (admin.clone(), asset.clone(), fee_rate, env.ledger().timestamp()));
+        env.events().publish(
+            topics,
+            (
+                admin.clone(),
+                asset.clone(),
+                fee_rate,
+                env.ledger().timestamp(),
+            ),
+        );
     }
 
     pub fn asset_fee_deducted(
@@ -290,7 +316,14 @@ impl FeeEvents {
         let topics = (symbol_short!("fee"), symbol_short!("ast_ded"));
         env.events().publish(
             topics,
-            (payer.clone(), asset.clone(), amount, fee, priority.to_u32(), env.ledger().timestamp()),
+            (
+                payer.clone(),
+                asset.clone(),
+                amount,
+                fee,
+                priority.to_u32(),
+                env.ledger().timestamp(),
+            ),
         );
     }
 
@@ -365,11 +398,16 @@ pub fn calculate_fee_for_asset(
         return 0;
     }
 
-    let adjusted_rate = calculate_priority_fee_rate(asset_config.fee_rate, PriorityLevel::default(), priority);
+    let adjusted_rate =
+        calculate_priority_fee_rate(asset_config.fee_rate, PriorityLevel::default(), priority);
     let fee = (amount * adjusted_rate as i128) / 10_000;
 
     let min = asset_config.min_fee;
-    let max = if asset_config.max_fee == 0 { i128::MAX } else { asset_config.max_fee };
+    let max = if asset_config.max_fee == 0 {
+        i128::MAX
+    } else {
+        asset_config.max_fee
+    };
     fee.max(min).min(max)
 }
 
@@ -385,11 +423,16 @@ pub fn calculate_fee_for_asset_with_priority(
         return 0;
     }
 
-    let adjusted_rate = calculate_priority_fee_rate(asset_config.fee_rate, priority, priority_config);
+    let adjusted_rate =
+        calculate_priority_fee_rate(asset_config.fee_rate, priority, priority_config);
     let fee = (amount * adjusted_rate as i128) / 10_000;
 
     let min = asset_config.min_fee;
-    let max = if asset_config.max_fee == 0 { i128::MAX } else { asset_config.max_fee };
+    let max = if asset_config.max_fee == 0 {
+        i128::MAX
+    } else {
+        asset_config.max_fee
+    };
     fee.max(min).min(max)
 }
 
@@ -498,7 +541,9 @@ impl FeeContract {
             .get(&DataKey::FeeConfig)
             .unwrap_or_else(|| panic_with_error!(&env, FeeError::NotInitialized));
         fee_config.priority_config = config.clone();
-        env.storage().instance().set(&DataKey::FeeConfig, &fee_config);
+        env.storage()
+            .instance()
+            .set(&DataKey::FeeConfig, &fee_config);
 
         FeeEvents::priority_config_updated(&env, &caller, &config);
     }
@@ -518,11 +563,7 @@ impl FeeContract {
     }
 
     /// Calculate fee for an amount with a specific priority level.
-    pub fn calculate_fee_with_priority(
-        env: Env,
-        amount: i128,
-        priority: PriorityLevel,
-    ) -> i128 {
+    pub fn calculate_fee_with_priority(env: Env, amount: i128, priority: PriorityLevel) -> i128 {
         if amount <= 0 {
             panic_with_error!(&env, FeeError::InvalidAmount);
         }
@@ -536,11 +577,7 @@ impl FeeContract {
         let fee = calculate_fee_with_priority(&env, amount, &config, priority);
 
         // Apply min/max bounds
-        let min_fee: i128 = env
-            .storage()
-            .instance()
-            .get(&DataKey::MinFee)
-            .unwrap_or(0);
+        let min_fee: i128 = env.storage().instance().get(&DataKey::MinFee).unwrap_or(0);
         let max_fee: i128 = env
             .storage()
             .instance()
@@ -623,6 +660,24 @@ impl FeeContract {
             .instance()
             .get(&DataKey::TotalFeesCollected)
             .unwrap_or(0)
+    }
+
+    /// Returns cumulative fees collected plus key ledger fields for observability.
+    /// `total_fees_collected` matches [`FeeContract::get_total_collected`].
+    pub fn get_contract_metrics(env: Env) -> FeeContractMetrics {
+        let total_fees_collected = Self::get_total_collected(env.clone());
+        let default_fee_rate_bps = env
+            .storage()
+            .instance()
+            .get::<DataKey, FeeConfig>(&DataKey::FeeConfig)
+            .map(|c| c.default_fee_rate)
+            .unwrap_or(0);
+        FeeContractMetrics {
+            total_fees_collected,
+            default_fee_rate_bps,
+            ledger_timestamp: env.ledger().timestamp(),
+            ledger_sequence: env.ledger().sequence(),
+        }
     }
 
     /// Get user fees accrued.
@@ -763,7 +818,13 @@ impl FeeContract {
             .instance()
             .get::<DataKey, AssetFeeConfig>(&DataKey::AssetFeeConfig(asset))
         {
-            calculate_fee_for_asset_with_priority(&env, amount, &asset_config, &priority_config, priority)
+            calculate_fee_for_asset_with_priority(
+                &env,
+                amount,
+                &asset_config,
+                &priority_config,
+                priority,
+            )
         } else {
             let fee_config: FeeConfig = env
                 .storage()
@@ -828,9 +889,10 @@ impl FeeContract {
         user_asset_fees = user_asset_fees
             .checked_add(fee)
             .unwrap_or_else(|| panic_with_error!(&env, FeeError::Overflow));
-        env.storage()
-            .instance()
-            .set(&DataKey::UserAssetFeesAccrued(payer.clone(), asset.clone()), &user_asset_fees);
+        env.storage().instance().set(
+            &DataKey::UserAssetFeesAccrued(payer.clone(), asset.clone()),
+            &user_asset_fees,
+        );
 
         FeeEvents::asset_fee_deducted(&env, &payer, &asset, amount, fee, priority);
         (net, fee)
@@ -911,7 +973,10 @@ impl FeeContract {
             results.push_back(FeeTransactionResult { net_amount, fee });
         }
 
-        BatchFeeResult { results, total_fees }
+        BatchFeeResult {
+            results,
+            total_fees,
+        }
     }
 
     /// Deduct fees for a batch of transactions atomically.
@@ -922,10 +987,7 @@ impl FeeContract {
     ///
     /// Returns a `BatchFeeResult` with per-transaction results and the
     /// aggregate total fees collected.
-    pub fn deduct_batch_fees(
-        env: Env,
-        transactions: Vec<FeeTransaction>,
-    ) -> BatchFeeResult {
+    pub fn deduct_batch_fees(env: Env, transactions: Vec<FeeTransaction>) -> BatchFeeResult {
         Self::require_initialized(&env);
 
         // Require auth from every distinct payer in the batch up-front so we
@@ -992,14 +1054,18 @@ impl FeeContract {
             let mut user_asset: i128 = env
                 .storage()
                 .instance()
-                .get(&DataKey::UserAssetFeesAccrued(tx.payer.clone(), tx.asset.clone()))
+                .get(&DataKey::UserAssetFeesAccrued(
+                    tx.payer.clone(),
+                    tx.asset.clone(),
+                ))
                 .unwrap_or(0);
             user_asset = user_asset
                 .checked_add(fee)
                 .unwrap_or_else(|| panic_with_error!(&env, FeeError::Overflow));
-            env.storage()
-                .instance()
-                .set(&DataKey::UserAssetFeesAccrued(tx.payer.clone(), tx.asset.clone()), &user_asset);
+            env.storage().instance().set(
+                &DataKey::UserAssetFeesAccrued(tx.payer.clone(), tx.asset.clone()),
+                &user_asset,
+            );
 
             // --- per-user global balance ---
             let mut user_total: i128 = env
@@ -1038,7 +1104,10 @@ impl FeeContract {
         let count = transactions.len() as u32;
         FeeEvents::batch_fees_deducted(&env, count, batch_total);
 
-        BatchFeeResult { results, total_fees: batch_total }
+        BatchFeeResult {
+            results,
+            total_fees: batch_total,
+        }
     }
 }
 
@@ -1108,7 +1177,8 @@ pub fn func_issue_203() {}
 /// Acceptance Criteria: Burn reduces supply
 pub fn burn_fee(env: &Env, amount: i128) -> i128 {
     // Implement token burn mechanism to reduce supply
-    env.events().publish((soroban_sdk::Symbol::new(env, "fee_burn"),), amount);
+    env.events()
+        .publish((soroban_sdk::Symbol::new(env, "fee_burn"),), amount);
     amount
 }
 

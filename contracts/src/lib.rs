@@ -1,20 +1,47 @@
+#![allow(unused)]
 
-// Solved #213: Feat(contract): implement contract metrics endpoint
-// Tasks implemented: Add getter functions
-// Acceptance Criteria met: Metrics accurate
-pub fn func_issue_213() {}
 
-// Solved #209: Feat(contract): implement cross-contract fee integration
-// Tasks implemented: Add interface calls
-// Acceptance Criteria met: Integration works correctly
-pub fn func_issue_209() {}
+pub mod storage;
+//! StellarSpend fee contract crate root: re-exports the fee contract and contract metrics types.
 
-// Solved #197: Feat(contract): implement contract upgrade safety checks
-// Tasks implemented: Add version checks, Validate migrations
-// Acceptance Criteria met: Safe upgrades enforced
-pub fn func_issue_197() {}
+pub mod auth;
+pub mod fee;
 
-// Solved #194: Feat(contract): implement pausability for fee operations
-// Tasks implemented: Add pause flag, Guard fee functions
-// Acceptance Criteria met: Contract halts when paused
-pub fn func_issue_194() {}
+pub use fee::*;
+
+#[cfg(test)]
+mod test;
+
+#[cfg(test)]
+mod contract_metrics_tests {
+    use super::*;
+    use soroban_sdk::{testutils::Address as _, Address, Env};
+
+    #[test]
+    fn contract_metrics_total_matches_get_total_collected() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let admin = Address::generate(&env);
+        let _id = env.register(FeeContract, ());
+        FeeContract::initialize(env.clone(), admin.clone(), 500);
+        let payer = Address::generate(&env);
+
+        let m0 = FeeContract::get_contract_metrics(env.clone());
+        assert_eq!(m0.total_fees_collected, 0);
+        assert_eq!(m0.default_fee_rate_bps, 500);
+
+        FeeContract::deduct_fee_with_priority(
+            env.clone(),
+            payer.clone(),
+            1000,
+            PriorityLevel::Medium,
+        );
+
+        let m1 = FeeContract::get_contract_metrics(env.clone());
+        assert_eq!(
+            m1.total_fees_collected,
+            FeeContract::get_total_collected(env.clone())
+        );
+        assert_eq!(m1.total_fees_collected, 50);
+    }
+}

@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "contracts/stellarspend-contracts",
     "contracts/transaction-analytics",
     "contracts/contract-upgrade/old_contract",
     "contracts/contract-upgrade/new_contract",
@@ -11,6 +12,7 @@ members = [
     "contracts/batch-payment-reminders",
     "contracts/batch-wallet-creation",
     "contracts/budget-recommendations",
+    "contracts/fee",
     "contracts/shared-budgets",
     "contracts/multi-currency-wallet",
     "contracts/spending-limits",

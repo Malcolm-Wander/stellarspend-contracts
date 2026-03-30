@@ -1,13 +1,13 @@
 [package]
-name = "escrow"
+name = "fee"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Batch escrow reversal contract for StellarSpend"
-handle hash
+description = "Fee escrow, rollover, batching, and lock contract for StellarSpend"
+
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 doctest = false
 
 [dependencies]

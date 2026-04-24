@@ -6,6 +6,7 @@ mod reconciliation;
 mod events;
 mod storage;
 mod validation;
+mod utils;
 
 #[cfg(test)]
 mod test;

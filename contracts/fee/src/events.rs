@@ -81,6 +81,8 @@ impl FeeEvents {
 
 pub struct TierEvents;
 
+pub struct FeeConfigEvents;
+
 impl TierEvents {
     /// Emitted when an admin assigns a tier to a user.
     pub fn tier_set(env: &Env, admin: &Address, user: &Address, tier: &Symbol) {
@@ -119,6 +121,28 @@ impl ConfigEvents {
                 min_fee: DEFAULT_MIN_FEE,
                 formatted_min_fee: format_amount(env, DEFAULT_MIN_FEE),
             },
+        );
+    }
+}
+
+impl FeeConfigEvents {
+    /// Emitted when fee configuration is updated.
+    pub fn fee_config_updated(
+        env: &Env,
+        admin: &Address,
+        fee_bps: Option<u32>,
+        min_fee: Option<i128>,
+        max_fee: Option<i128>,
+    ) {
+        let topics = (symbol_short!("fee"), symbol_short!("config_up"));
+        env.events().publish(
+            topics,
+            (
+                admin.clone(),
+                fee_bps.unwrap_or(0),
+                min_fee.unwrap_or(0),
+                max_fee.unwrap_or(0),
+            ),
         );
     }
 }

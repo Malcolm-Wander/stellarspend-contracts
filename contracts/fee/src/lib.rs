@@ -206,6 +206,7 @@ impl FeeContract {
 
         write_fee_bps(&env, fee_bps);
         FeeEvents::fee_bps_updated(&env, fee_bps);
+        FeeConfigEvents::fee_config_updated(&env, &admin, Some(fee_bps), None, None);
     }
 
     pub fn set_treasury(env: Env, _admin: Address, treasury: Address) {
@@ -224,6 +225,19 @@ impl FeeContract {
 
         write_min_fee(&env, min_fee);
         FeeEvents::min_fee_updated(&env, min_fee);
+        FeeConfigEvents::fee_config_updated(&env, &admin, None, Some(min_fee), None);
+    }
+
+    pub fn set_max_fee(env: Env, admin: Address, max_fee: i128) {
+        admin.require_auth();
+        Self::require_admin(&env, &admin);
+        Self::require_unlocked(&env);
+
+        let min_fee = read_min_fee(&env);
+        validate_max_fee_or_panic(&env, max_fee, min_fee);
+
+        write_max_fee(&env, max_fee);
+        FeeConfigEvents::fee_config_updated(&env, &admin, None, None, Some(max_fee));
     }
 
     /// Resets fee configuration to default values. Admin-only.
@@ -260,6 +274,10 @@ impl FeeContract {
 
     pub fn get_min_fee(env: Env) -> i128 {
         read_min_fee(&env)
+    }
+
+    pub fn get_max_fee(env: Env) -> i128 {
+        read_max_fee(&env)
     }
 
     pub fn is_locked(env: Env) -> bool {

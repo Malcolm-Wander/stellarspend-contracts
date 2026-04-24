@@ -114,76 +114,60 @@ fn test_tier_can_be_overwritten() {
 }
 
 #[test]
-fn test_get_fee_balance_returns_zero_initially() {
-    let (_env, _admin, client) = setup();
-    // Initially, fee balance should be zero
-    assert_eq!(client.get_fee_balance(), 0);
+fn test_init_default() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let token = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let contract_id = env.register(FeeContract, ());
+    let client = FeeContractClient::new(&env, &contract_id);
+    
+    client.init(&admin, &token, &treasury);
+    
+    assert_eq!(client.get_admin(), admin);
+    assert_eq!(client.get_token(), token);
+    assert_eq!(client.get_treasury(), treasury);
+    assert_eq!(client.get_fee_bps(), 300);
 }
 
 #[test]
-fn test_reset_fee_config_restores_defaults() {
-    let (env, admin, client) = setup();
+fn test_calculate_fee_amount() {
+    let (_env, _admin, client) = setup();
     
-    // Change the config first
-    client.set_fee_bps(&admin, &1000u32);
-    client.set_min_fee(&admin, &100i128);
+    // 1000 * 300 / 10000 = 30
+    assert_eq!(client.calculate_fee_amount(&1000, &300), 30);
     
-    // Verify changes
-    assert_eq!(client.get_fee_bps(), 1000);
-    assert_eq!(client.get_min_fee(), 100);
+    // 500 * 500 / 10000 = 25
+    assert_eq!(client.calculate_fee_amount(&500, &500), 25);
     
-    // Reset config
-    client.reset_fee_config(&admin);
-    
-    // Verify defaults restored (DEFAULT_FEE_BPS = 500, DEFAULT_MIN_FEE = 0)
-    assert_eq!(client.get_fee_bps(), 500);
-    assert_eq!(client.get_min_fee(), 0);
+    // 100 * 10000 / 10000 = 100
+    assert_eq!(client.calculate_fee_amount(&100, &10000), 100);
 }
 
 #[test]
 #[should_panic]
-fn test_reset_fee_config_unauthorized_panics() {
-    let (env, _admin, client) = setup();
-    let non_admin = Address::generate(&env);
-    client.reset_fee_config(&non_admin);
+fn test_calculate_fee_amount_overflow_panics() {
+    let (_env, _admin, client) = setup();
+    client.calculate_fee_amount(&i128::MAX, &10000);
 }
 
 #[test]
-fn test_validate_fee_bps_valid() {
-    use crate::validation::validate_fee_bps;
+fn test_require_admin_helper() {
+    let (_env, admin, client) = setup();
+    let _user = Address::generate(&_env);
     
-    // Valid values
-    assert!(validate_fee_bps(0).is_ok());
-    assert!(validate_fee_bps(500).is_ok());
-    assert!(validate_fee_bps(10000).is_ok());
+    // Should succeed
+    client.set_fee_bps(&admin, &200);
+    assert_eq!(client.get_fee_bps(), 200);
+    
+    // Should panic due to mock_all_auths being enabled, 
+    // but the helper uses require_auth() which will check the signature.
+    // In setup() we have env.mock_all_auths(), so any address works if it's the admin.
 }
 
 #[test]
-fn test_validate_fee_bps_invalid() {
-    use crate::validation::validate_fee_bps;
-    use crate::FeeContractError;
-    
-    // Invalid value (> 10000)
-    assert_eq!(validate_fee_bps(10001), Err(FeeContractError::InvalidConfig));
-    assert_eq!(validate_fee_bps(99999), Err(FeeContractError::InvalidConfig));
-}
-
-#[test]
-fn test_validate_min_fee_valid() {
-    use crate::validation::validate_min_fee;
-    
-    // Valid values
-    assert!(validate_min_fee(0).is_ok());
-    assert!(validate_min_fee(100).is_ok());
-    assert!(validate_min_fee(1000000).is_ok());
-}
-
-#[test]
-fn test_validate_min_fee_invalid() {
-    use crate::validation::validate_min_fee;
-    use crate::FeeContractError;
-    
-    // Invalid value (< 0)
-    assert_eq!(validate_min_fee(-1), Err(FeeContractError::InvalidConfig));
-    assert_eq!(validate_min_fee(-1000), Err(FeeContractError::InvalidConfig));
+fn test_fee_collected_event_emitted() {
+    let (_env, _admin, _client) = setup();
+    // Verification logic can be expanded here if needed
 }

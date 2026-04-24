@@ -27,6 +27,8 @@ members = [
     "contracts/batch-token-mint",
     "contracts/asset_control",
     "contracts/access-control",
+    "contracts/users",
+    "contracts/transactions",
 ]
 
 [package]

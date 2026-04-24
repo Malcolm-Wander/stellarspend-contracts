@@ -314,4 +314,21 @@ impl FeeContract {
         read_total_batch_calls(&env)
     }
 
-    pub fn preview_batch_fee(env: Env
+    pub fn preview_batch_fee(env: Env, _payer: Address, amounts: Vec<i128>) -> i128 {
+        let mut total: i128 = 0;
+        for amount in amounts.iter() {
+            total = total.checked_add(amount).unwrap_or(0);
+        }
+        total
+    }
+
+    fn require_unlocked(env: &Env) {
+        if read_locked(env) {
+            panic_with_error!(env, FeeContractError::Locked);
+        }
+    }
+
+    fn require_admin(env: &Env, admin: &Address) {
+        require_admin(env, admin);
+    }
+}

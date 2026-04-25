@@ -69,6 +69,14 @@ impl UsersContract {
     pub fn is_user_registered(env: Env, user: Address) -> bool {
         user_exists(&env, user)
     }
+
+    /// Verify user existence — returns `true` if the user has been registered,
+    /// `false` otherwise. Functionally identical to `is_user_registered`;
+    /// exposed under this name to satisfy the `check_user_exists` API surface
+    /// requested in issue #336.
+    pub fn check_user_exists(env: Env, user: Address) -> bool {
+        user_exists(&env, user)
+    }
     
     /// Get all registered users (admin only)
     pub fn get_all_users(env: Env, caller: Address) -> Vec<Address> {

@@ -114,6 +114,65 @@ fn test_user_exists_functionality() {
     assert!(UsersContract::is_user_registered(env.clone(), user2.clone()));
 }
 
+// ── Issue #336: check_user_exists ────────────────────────────────────────────
+
+#[test]
+fn test_check_user_exists_returns_false_for_unregistered() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let _contract_id = env.register(UsersContract, ());
+
+    UsersContract::initialize(env.clone(), admin.clone());
+
+    let stranger = Address::generate(&env);
+    assert!(!UsersContract::check_user_exists(env.clone(), stranger));
+}
+
+#[test]
+fn test_check_user_exists_returns_true_after_registration() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let _contract_id = env.register(UsersContract, ());
+
+    UsersContract::initialize(env.clone(), admin.clone());
+
+    let user = Address::generate(&env);
+    // Before registration → false
+    assert!(!UsersContract::check_user_exists(env.clone(), user.clone()));
+
+    // After registration → true
+    UsersContract::register_user(env.clone(), user.clone());
+    assert!(UsersContract::check_user_exists(env.clone(), user.clone()));
+}
+
+#[test]
+fn test_check_user_exists_matches_is_user_registered() {
+    // check_user_exists is a deliberate alias for is_user_registered.
+    // This test enforces parity so any future divergence is caught.
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let _contract_id = env.register(UsersContract, ());
+
+    UsersContract::initialize(env.clone(), admin.clone());
+
+    let registered = Address::generate(&env);
+    let unregistered = Address::generate(&env);
+
+    UsersContract::register_user(env.clone(), registered.clone());
+
+    // Both functions must agree on a registered user
+    assert_eq!(
+        UsersContract::check_user_exists(env.clone(), registered.clone()),
+        UsersContract::is_user_registered(env.clone(), registered.clone()),
+    );
+
+    // Both functions must agree on an unregistered user
+    assert_eq!(
+        UsersContract::check_user_exists(env.clone(), unregistered.clone()),
+        UsersContract::is_user_registered(env.clone(), unregistered.clone()),
+    );
+}
+
 #[test]
 fn test_multiple_unique_users() {
     let env = Env::default();

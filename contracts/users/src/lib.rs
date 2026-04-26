@@ -7,7 +7,10 @@ use soroban_sdk::{
 
 mod storage;
 
-pub use storage::{add_user, get_user_count, user_exists, get_all_users};
+pub use storage::{add_user, get_user_count, user_exists, get_all_users, reset_user_data};
+
+#[cfg(test)]
+mod test;
 
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -78,6 +81,22 @@ impl UsersContract {
         get_all_users(&env)
     }
     
+    /// Reset the user's profile data (only the user may call)
+    pub fn reset_user_data(env: Env, user: Address) -> bool {
+        user.require_auth();
+
+        let success = reset_user_data(&env, user.clone());
+
+        if success {
+            env.events().publish(
+                (symbol_short!("users"), symbol_short!("reset")),
+                user,
+            );
+        }
+
+        success
+    }
+
     /// Get the admin address
     pub fn get_admin(env: Env) -> Option<Address> {
         env.storage().instance().get(&DataKey::Admin)

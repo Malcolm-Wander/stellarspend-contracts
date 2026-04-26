@@ -1,4 +1,4 @@
-use soroban_sdk::{contracttype, Address, Env, Map, String, Vec};
+use soroban_sdk::{contracttype, Address, Env, Map, String, Vec, String};
 
 #[derive(Clone)]
 #[contracttype]
@@ -11,6 +11,10 @@ pub enum DataKey {
     DefaultCurrency(Address),
     /// Active status for a user
     UserActive(Address),
+    /// User activity status (user address -> bool)
+    UserActive(Address),
+    /// User currency preference (user address -> String)
+    UserCurrency(Address),
 }
 
 /// Add a user to the set of unique users if not already present
@@ -33,6 +37,11 @@ pub fn add_user(env: &Env, user: Address) -> bool {
     env.storage()
         .persistent()
         .set(&DataKey::Users, &users);
+    
+    // Set user as active by default
+    env.storage()
+        .persistent()
+        .set(&DataKey::UserActive(user.clone()), &true);
     
     // Update count
     let mut count: u64 = env
@@ -158,4 +167,48 @@ pub fn is_user_active(env: &Env, user: Address) -> bool {
         .persistent()
         .get(&DataKey::UserActive(user))
         .unwrap_or(false)
+}
+
+/// Get user activity status
+pub fn get_user_active_status(env: &Env, user: Address) -> bool {
+    env.storage()
+        .persistent()
+        .get(&DataKey::UserActive(user))
+        .unwrap_or(false)
+}
+
+/// Set user activity status
+pub fn set_user_active_status(env: &Env, user: Address, is_active: bool) -> bool {
+    // Only allow setting status for existing users
+    if !user_exists(env, user.clone()) {
+        return false;
+    }
+    
+    env.storage()
+        .persistent()
+        .set(&DataKey::UserActive(user), &is_active);
+    
+    true
+}
+
+/// Get user's preferred currency
+pub fn get_user_currency(env: &Env, user: Address) -> String {
+    env.storage()
+        .persistent()
+        .get(&DataKey::UserCurrency(user))
+        .unwrap_or_else(|| String::from_str(env, "USD"))
+}
+
+/// Set user's preferred currency
+pub fn set_user_currency(env: &Env, user: Address, currency: String) -> bool {
+    // Only allow setting currency for existing users
+    if !user_exists(env, user.clone()) {
+        return false;
+    }
+    
+    env.storage()
+        .persistent()
+        .set(&DataKey::UserCurrency(user), &currency);
+    
+    true
 }

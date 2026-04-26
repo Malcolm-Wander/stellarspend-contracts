@@ -9,7 +9,8 @@ mod storage;
 
 pub use storage::{
     create_transaction, get_transaction, get_transaction_timestamp, get_user_transactions,
-    clear_user_transactions, transaction_exists, get_last_transaction, get_total_transactions_count, Transaction,
+    clear_user_transactions, transaction_exists, get_last_transaction, get_total_transactions_count, 
+    update_transaction_status, is_transaction_owner, get_transaction_memo, Transaction, TransactionStatus,
 };
 
 #[cfg(test)]
@@ -61,6 +62,7 @@ impl TransactionsContract {
         to: Address,
         amount: i128,
         note: String,
+        memo: String,
         tags: Vec<String>,
     ) -> Symbol {
         from.require_auth();
@@ -69,7 +71,7 @@ impl TransactionsContract {
             panic_with_error!(&env, TransactionError::InvalidAmount);
         }
         
-        let transaction = create_transaction(&env, from.clone(), to, amount, note, tags);
+        let transaction = create_transaction(&env, from.clone(), to, amount, note, memo, tags);
         
         env.events().publish(
             (symbol_short!("tx"), symbol_short!("created")),
@@ -178,6 +180,36 @@ impl TransactionsContract {
     /// Check if a transaction exists
     pub fn transaction_exists(env: Env, id: Symbol) -> bool {
         transaction_exists(&env, id)
+    }
+
+    /// Update the status of a transaction (only owner/admin allowed)
+    pub fn update_transaction_status(env: Env, id: Symbol, caller: Address, status: TransactionStatus) -> bool {
+        caller.require_auth();
+        
+        if !transaction_exists(&env, id.clone()) {
+            panic_with_error!(&env, TransactionError::TransactionNotFound);
+        }
+        
+        let success = storage::update_transaction_status(&env, id.clone(), caller, status);
+        
+        if success {
+            env.events().publish(
+                (symbol_short!("tx"), symbol_short!("status_upd")),
+                (id.clone(), status),
+            );
+        }
+        
+        success
+    }
+
+    /// Check if a user is the owner of a transaction
+    pub fn is_transaction_owner(env: Env, id: Symbol, user: Address) -> bool {
+        is_transaction_owner(&env, id, user)
+    }
+
+    /// Get transaction memo
+    pub fn get_transaction_memo(env: Env, id: Symbol) -> Option<String> {
+        get_transaction_memo(&env, id)
     }
 
     fn require_admin(env: &Env, caller: &Address) {

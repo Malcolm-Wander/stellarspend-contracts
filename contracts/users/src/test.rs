@@ -1,4 +1,4 @@
-use soroban_sdk::{testutils::Address as _, Address, Env, String, Vec};
+use soroban_sdk::{testutils::Address as _, Address, Env, String, Vec, String};
 use crate::{UsersContract, UsersContractClient, UserError};
 
 #[test]

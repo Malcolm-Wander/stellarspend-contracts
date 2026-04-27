@@ -30,6 +30,7 @@ pub enum TransactionError {
     InvalidId = 6,
     TransactionLimitReached = 7,
     InvalidNoteLength = 8,
+    DuplicateTransaction = 9,
 }
 
 const MAX_NOTE_LENGTH: usize = 256;
@@ -83,6 +84,12 @@ impl TransactionsContract {
         if note.len() > MAX_NOTE_LENGTH {
             panic_with_error!(&env, TransactionError::InvalidNoteLength);
         }
+
+        // Check for duplicate transactions
+        if storage::is_duplicate_transaction(&env, from.clone(), to.clone(), amount, memo.clone()) {
+            panic_with_error!(&env, TransactionError::DuplicateTransaction);
+        }
+
         
         let transaction = create_transaction(&env, from.clone(), to, amount, note, memo, tags);
         

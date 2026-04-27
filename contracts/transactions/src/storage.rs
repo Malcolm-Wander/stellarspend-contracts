@@ -397,3 +397,43 @@ pub fn get_transactions_paginated(env: &Env, offset: u32, limit: u32) -> Vec<Tra
 
     transactions
 }
+
+/// Check if a transaction is a duplicate (same from, to, amount, and memo)
+/// within the user's recent history (last 5 transactions).
+pub fn is_duplicate_transaction(
+    env: &Env,
+    from: Address,
+    to: Address,
+    amount: i128,
+    memo: String,
+) -> bool {
+    let tx_ids: Vec<Symbol> = env
+        .storage()
+        .persistent()
+        .get(&DataKey::UserTransactions(from))
+        .unwrap_or_else(|| Vec::new(env));
+
+    if tx_ids.is_empty() {
+        return false;
+    }
+
+    // Check only the most recent 5 transactions for duplicates
+    let start = if tx_ids.len() > 5 {
+        tx_ids.len() - 5
+    } else {
+        0
+    };
+
+    for i in start..tx_ids.len() {
+        if let Some(tx_id) = tx_ids.get(i) {
+            if let Some(tx) = get_transaction(env, tx_id) {
+                if tx.to == to && tx.amount == amount && tx.memo == memo {
+                    return true;
+                }
+            }
+        }
+    }
+
+    false
+}
+

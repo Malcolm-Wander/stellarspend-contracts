@@ -2,13 +2,16 @@
 
 use soroban_sdk::{
     contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, Address,
-    Env, Vec, String,
+    Env, String, Vec, String,
 };
 
 mod storage;
 
 pub use storage::{
-    add_user, get_user_count, user_exists, get_all_users, reset_user_data,
+    
+    add_user, deactivate_user as storage_deactivate_user, get_all_users, get_default_currency,
+    get_user_count, is_user_active, reset_user_data, set_default_currency, user_exists,
+,
     get_user_active_status, set_user_active_status,
     get_user_currency, set_user_currency,
     get_user_last_login, set_user_last_login,
@@ -130,7 +133,49 @@ impl UsersContract {
         success
     }
 
-    /// Return the stored admin address, if the contract has been initialized.
+    /// Set default currency preference for a registered user.
+    pub fn set_default_currency(env: Env, user: Address, currency: String) {
+        user.require_auth();
+
+        if !user_exists(&env, user.clone()) {
+            panic_with_error!(&env, UserError::UserNotFound);
+        }
+
+        set_default_currency(&env, user.clone(), currency.clone());
+
+        env.events().publish(
+            (symbol_short!("users"), symbol_short!("def_curr")),
+            (user, currency),
+        );
+    }
+
+    /// Get default currency preference for a user.
+    pub fn get_default_currency(env: Env, user: Address) -> Option<String> {
+        get_default_currency(&env, user)
+    }
+
+    /// Deactivate a registered user account (only the user may call).
+    pub fn deactivate_user(env: Env, user: Address) -> bool {
+        user.require_auth();
+
+        let success = storage_deactivate_user(&env, user.clone());
+
+        if success {
+            env.events().publish(
+                (symbol_short!("users"), symbol_short!("deact")),
+                user,
+            );
+        }
+
+        success
+    }
+
+    /// Return whether the given user account is active.
+    pub fn is_user_active(env: Env, user: Address) -> bool {
+        is_user_active(&env, user)
+    }
+
+    /// Get the admin address
     pub fn get_admin(env: Env) -> Option<Address> {
         env.storage().instance().get(&DataKey::Admin)
     }

@@ -1,4 +1,4 @@
-use soroban_sdk::{testutils::Address as _, Address, Env, Vec, String};
+use soroban_sdk::{testutils::Address as _, Address, Env, String, Vec, String};
 use crate::{UsersContract, UsersContractClient, UserError};
 
 #[test]
@@ -247,60 +247,55 @@ fn test_multiple_unique_users() {
 }
 
 #[test]
-fn test_get_user_currency_default() {
+fn test_set_and_get_default_currency() {
     let env = Env::default();
     let admin = Address::generate(&env);
     let contract_id = env.register(UsersContract, ());
     let client = UsersContractClient::new(&env, &contract_id);
-    
-    client.initialize(&admin);
-    
-    let user = Address::generate(&env);
-    client.register_user(&user);
-    
-    // Test default currency is USD
-    let currency = client.get_user_currency(&user);
-    assert_eq!(currency, String::from_str(&env, "USD"));
-}
 
-#[test]
-fn test_set_user_currency() {
-    let env = Env::default();
-    let admin = Address::generate(&env);
-    let contract_id = env.register(UsersContract, ());
-    let client = UsersContractClient::new(&env, &contract_id);
-    
     client.initialize(&admin);
-    
+
     let user = Address::generate(&env);
     client.register_user(&user);
-    
-    // Test setting custom currency
-    let euro = String::from_str(&env, "EUR");
-    let success = client.set_user_currency(&user, &euro);
-    assert!(success);
-    
-    // Verify currency was set
-    let currency = client.get_user_currency(&user);
-    assert_eq!(currency, euro);
+
+    let currency = String::from_str(&env, "USD");
+    client.set_default_currency(&user, &currency);
+
+    assert_eq!(client.get_default_currency(&user), Some(currency));
 }
 
 #[test]
 #[should_panic]
-fn test_set_user_currency_unregistered_user_fails() {
+fn test_set_default_currency_fails_for_unregistered_user() {
     let env = Env::default();
     let admin = Address::generate(&env);
     let contract_id = env.register(UsersContract, ());
     let client = UsersContractClient::new(&env, &contract_id);
-    
+
     client.initialize(&admin);
-    
+
     let user = Address::generate(&env);
-    // Don't register the user
-    
-    // Try to set currency for unregistered user - should fail
-    let euro = String::from_str(&env, "EUR");
-    client.set_user_currency(&user, &euro);
+    let currency = String::from_str(&env, "USD");
+
+    client.set_default_currency(&user, &currency);
+}
+
+#[test]
+fn test_deactivate_user_marks_user_inactive() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let contract_id = env.register(UsersContract, ());
+    let client = UsersContractClient::new(&env, &contract_id);
+
+    client.initialize(&admin);
+
+    let user = Address::generate(&env);
+    client.register_user(&user);
+    assert!(client.is_user_active(&user));
+
+    let success = client.deactivate_user(&user);
+    assert!(success);
+    assert!(!client.is_user_active(&user));
 }
 
 

@@ -89,6 +89,7 @@ impl TransactionsContract {
         if storage::is_duplicate_transaction(&env, from.clone(), to.clone(), amount, memo.clone()) {
             panic_with_error!(&env, TransactionError::DuplicateTransaction);
         }
+
         
         let transaction = create_transaction(&env, from.clone(), to, amount, note, memo, tags);
         

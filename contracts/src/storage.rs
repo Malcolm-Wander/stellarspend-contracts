@@ -1,50 +1,127 @@
+use soroban_sdk::{contracttype, Address, Env, Vec};
 
-// Solved #216: Feat(contract): implement fee snapshot system
-// Tasks implemented: Implement snapshots
-// Acceptance Criteria met: Snapshots retrievable
-pub fn func_issue_216() {}
+#[derive(Clone)]
+#[contracttype]
+pub enum FeeLogKind {
+    Charge,
+    Refund,
+}
 
-// Solved #214: Feat(contract): implement fee configuration audit trail
-// Tasks implemented: Store change logs
-// Acceptance Criteria met: Audit trail accessible
-pub fn func_issue_214() {}
+#[derive(Clone)]
+#[contracttype]
+pub struct FeeLog {
+    pub id: u64,
+    pub payer: Option<Address>,
+    pub gross_amount: i128,
+    pub fee_amount: i128,
+    pub timestamp: u64,
+    pub ledger_sequence: u32,
+    pub kind: FeeLogKind,
+}
 
-// Solved #211: Feat(contract): implement storage optimization
-// Tasks implemented: Refactor storage
-// Acceptance Criteria met: Storage minimized
-pub fn func_issue_211() {}
+#[derive(Clone)]
+pub enum DataKey {
+    FeeLogCount,
+    FeeLog(u64),
+    UserProfile(Address),
+}
 
-// Solved #205: Feat(contract): implement fee thresholds
-// Tasks implemented: Add threshold checks
-// Acceptance Criteria met: Thresholds trigger events
-pub fn func_issue_205() {}
+pub fn append_fee_log(
+    env: &Env,
+    payer: Option<Address>,
+    gross_amount: i128,
+    fee_amount: i128,
+    kind: FeeLogKind,
+) -> FeeLog {
+    let mut count: u64 = env
+        .storage()
+        .persistent()
+        .get(&DataKey::FeeLogCount)
+        .unwrap_or(0);
 
-// Solved #202: Feat(contract): implement fee locking mechanism
-// Tasks implemented: Add lock timestamps
-// Acceptance Criteria met: Locked funds not withdrawable
-pub fn func_issue_202() {}
+    count += 1;
 
-// Solved #201: Feat(contract): implement fee splitting per category
-// Tasks implemented: Add category mapping
-// Acceptance Criteria met: Fees categorized correctly
-pub fn func_issue_201() {}
+    let fee_log = FeeLog {
+        id: count,
+        payer,
+        gross_amount,
+        fee_amount,
+        timestamp: env.ledger().timestamp(),
+        ledger_sequence: env.ledger().sequence(),
+        kind,
+    };
 
-// Solved #199: Feat(contract): implement fee history tracking
-// Tasks implemented: Store fee logs
-// Acceptance Criteria met: Historical data retrievable
-pub fn func_issue_199() {}
+    env.storage()
+        .persistent()
+        .set(&DataKey::FeeLog(count), &fee_log);
+    env.storage()
+        .persistent()
+        .set(&DataKey::FeeLogCount, &count);
 
-// Solved #196: Feat(contract): implement fee rollover logic
-// Tasks implemented: Track period-based balances
-// Acceptance Criteria met: Fees persist across periods
-pub fn func_issue_196() {}
+    fee_log
+}
 
-// Solved #192: Feat(contract): implement fee treasury segregation
-// Tasks implemented: Add treasury storage, Route fees to treasury
-// Acceptance Criteria met: Treasury tracked independently
-pub fn func_issue_192() {}
+pub fn get_fee_log(env: &Env, id: u64) -> Option<FeeLog> {
+    env.storage().persistent().get(&DataKey::FeeLog(id))
+}
 
-// Solved #191: Feat(contract): implement fee discount expiration
-// Tasks implemented: Store expiration timestamps, Validate during fee calculation
-// Acceptance Criteria met: Expired discounts ignored, Active discounts applied
-pub fn func_issue_191() {}
+pub fn get_fee_log_count(env: &Env) -> u64 {
+    env.storage()
+        .persistent()
+        .get(&DataKey::FeeLogCount)
+        .unwrap_or(0)
+}
+
+pub fn get_fee_logs(env: &Env, start: u64, end: u64) -> Vec<FeeLog> {
+    if start == 0 || end < start {
+        return Vec::new(env);
+    }
+
+    let mut logs = Vec::new(env);
+    let total = get_fee_log_count(env);
+    let capped_end = if end > total { total } else { end };
+
+    for id in start..=capped_end {
+        if let Some(log) = get_fee_log(env, id) {
+            logs.push_back(log);
+        }
+    }
+
+    logs
+}
+
+#[derive(Clone)]
+#[contracttype]
+pub fn set_user_fee_override(env: &Env, user: Address, fee_bps: u32) {
+    // safety guard
+    assert!(fee_bps <= 10_000, "invalid fee");
+
+    env.storage()
+        .persistent()
+        .set(&DataKey::UserFeeOverride(user), &fee_bps);
+}
+
+pub fn get_user_fee_override(env: &Env, user: Address) -> Option<u32> {
+    env.storage()
+        .persistent()
+        .get(&DataKey::UserFeeOverride(user))
+}
+
+pub fn remove_user_fee_override(env: &Env, user: Address) {
+    env.storage()
+        .persistent()
+        .remove(&DataKey::UserFeeOverride(user));
+} // ========== USER PROFILE STORAGE (Issues #324 & #323) ==========
+
+pub fn set_user_profile(env: &Env, user: Address, data: String) {
+    env.storage()
+        .persistent()
+        .set(&DataKey::UserProfile(user.clone()), &data);
+}
+
+pub fn get_user_profile(env: &Env, user: Address) -> String {
+    env.storage()
+        .persistent()
+        .get(&DataKey::UserProfile(user))
+        .unwrap_or("".to_string())
+}

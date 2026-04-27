@@ -1,9 +1,12 @@
 [workspace]
 resolver = "2"
 members = [
+    "contracts/balance",
+    "contracts/stellarspend-contracts",
     "contracts/transaction-analytics",
     "contracts/contract-upgrade/old_contract",
     "contracts/contract-upgrade/new_contract",
+    "contracts/shared",
     "contracts/batch-transfer",
     "contracts/batch-conversion",
     "contracts/batch-rewards",
@@ -11,6 +14,7 @@ members = [
     "contracts/batch-payment-reminders",
     "contracts/batch-wallet-creation",
     "contracts/budget-recommendations",
+    "contracts/fee",
     "contracts/shared-budgets",
     "contracts/multi-currency-wallet",
     "contracts/spending-limits",
@@ -23,6 +27,8 @@ members = [
     "contracts/batch-token-mint",
     "contracts/asset_control",
     "contracts/access-control",
+    "contracts/users",
+    "contracts/transactions",
 ]
 
 [package]
@@ -37,6 +43,7 @@ soroban-sdk = { workspace = true, features = ["testutils"] }
 [[test]]
 name = "snapshot_tests"
 path = "tests/snapshot_tests.rs"
+
 [[test]]
 name = "memo_tests"
 path = "tests/memo_tests.rs"
@@ -49,6 +56,7 @@ repository = "https://github.com/stellarspend/stellarspend-contracts"
 
 [workspace.dependencies]
 soroban-sdk = "22.0.0"
+shared = { path = "contracts/shared" }
 
 [profile.release]
 opt-level = "z"

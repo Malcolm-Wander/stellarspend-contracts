@@ -6,7 +6,7 @@ use soroban_sdk::{
 use category_analytics::{
     CategoryAnalytics, CategoryAnalyticsClient,
 };
-
+// handle hash
 fn setup_analytics_contract() -> (Env, Address, CategoryAnalyticsClient<'static>) {
     let env = Env::default();
     env.mock_all_auths();

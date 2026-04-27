@@ -343,6 +343,7 @@ fn test_get_transaction_memo_nonexistent() {
 }
 
 #[test]
+fn test_delete_transaction_admin_can_remove_record() {
 fn test_get_all_transactions() {
     let env = Env::default();
     let admin = Address::generate(&env);
@@ -351,6 +352,25 @@ fn test_get_all_transactions() {
 
     client.initialize(&admin);
 
+    let from = Address::generate(&env);
+    let to = Address::generate(&env);
+    let amount: i128 = 1000;
+    let note = String::from_str(&env, "Transaction to delete");
+    let memo = String::from_str(&env, "Delete memo");
+
+    let tx_id = client.create_transaction(&from, &to, &amount, &note, &memo, &Vec::new(&env));
+    assert!(client.transaction_exists(&tx_id));
+
+    let success = client.delete_transaction(&admin, &tx_id);
+    assert!(success);
+    assert!(!client.transaction_exists(&tx_id));
+    assert!(client.get_transaction(&tx_id).is_none());
+    assert_eq!(client.get_user_transactions(&from).len(), 0);
+}
+
+#[test]
+#[should_panic]
+fn test_delete_transaction_rejects_non_admin() {
     let user1 = Address::generate(&env);
     let user2 = Address::generate(&env);
     let recipient = Address::generate(&env);
@@ -379,6 +399,15 @@ fn test_get_all_transactions_empty() {
 
     client.initialize(&admin);
 
+    let from = Address::generate(&env);
+    let to = Address::generate(&env);
+    let amount: i128 = 1000;
+    let note = String::from_str(&env, "Transaction to delete");
+
+    let tx_id = client.create_transaction(&from, &to, &amount, &note, &Vec::new(&env));
+
+    let caller = Address::generate(&env);
+    client.delete_transaction(&caller, &tx_id);
     let all_txs = client.get_all_transactions();
     assert_eq!(all_txs.len(), 0);
 }

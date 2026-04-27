@@ -2,7 +2,7 @@
     testutils::{Address as _, Ledger},
     Address, Env, Symbol, String, Vec,
 };
-use crate::{TransactionsContract, TransactionsContractClient, TransactionError, Transaction};
+use crate::{TransactionsContract, TransactionsContractClient, TransactionError, Transaction, TransactionStatus};
 
 #[test]
 fn test_initialize_and_get_admin() {
@@ -59,6 +59,7 @@ fn test_create_transaction() {
     assert_eq!(transaction.tags.get(0), Some(String::from_str(&env, "groceries")));
     assert_eq!(transaction.tags.get(1), Some(String::from_str(&env, "monthly")));
     assert!(transaction.timestamp > 0);
+    assert_eq!(transaction.status, crate::TransactionStatus::Completed);
 }
 
 #[test]
@@ -366,4 +367,193 @@ fn test_get_transaction_memo_nonexistent() {
     // Test get_transaction_memo for non-existent transaction
     let memo = client.get_transaction_memo(&fake_id);
     assert!(memo.is_none());
+}
+
+#[test]
+fn test_delete_transaction_admin_can_remove_record() {
+fn test_get_all_transactions() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let contract_id = env.register(TransactionsContract, ());
+    let client = TransactionsContractClient::new(&env, &contract_id);
+
+    client.initialize(&admin);
+
+    let from = Address::generate(&env);
+    let to = Address::generate(&env);
+    let amount: i128 = 1000;
+    let note = String::from_str(&env, "Transaction to delete");
+    let memo = String::from_str(&env, "Delete memo");
+
+    let tx_id = client.create_transaction(&from, &to, &amount, &note, &memo, &Vec::new(&env));
+    assert!(client.transaction_exists(&tx_id));
+
+    let success = client.delete_transaction(&admin, &tx_id);
+    assert!(success);
+    assert!(!client.transaction_exists(&tx_id));
+    assert!(client.get_transaction(&tx_id).is_none());
+    assert_eq!(client.get_user_transactions(&from).len(), 0);
+}
+
+#[test]
+#[should_panic]
+fn test_delete_transaction_rejects_non_admin() {
+    let user1 = Address::generate(&env);
+    let user2 = Address::generate(&env);
+    let recipient = Address::generate(&env);
+
+    // Create some transactions
+    let tx1_id = client.create_transaction(&user1, &recipient, &1000, &String::from_str(&env, "Transaction 1"), &Vec::new(&env));
+    let tx2_id = client.create_transaction(&user2, &recipient, &2000, &String::from_str(&env, "Transaction 2"), &Vec::new(&env));
+    let tx3_id = client.create_transaction(&user1, &recipient, &3000, &String::from_str(&env, "Transaction 3"), &Vec::new(&env));
+
+    let all_txs = client.get_all_transactions();
+    assert_eq!(all_txs.len(), 3);
+
+    // Check that all transactions are present
+    let ids: Vec<Symbol> = all_txs.iter().map(|tx| tx.id.clone()).collect();
+    assert!(ids.contains(&tx1_id));
+    assert!(ids.contains(&tx2_id));
+    assert!(ids.contains(&tx3_id));
+}
+
+#[test]
+fn test_get_all_transactions_empty() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let contract_id = env.register(TransactionsContract, ());
+    let client = TransactionsContractClient::new(&env, &contract_id);
+
+    client.initialize(&admin);
+
+    let from = Address::generate(&env);
+    let to = Address::generate(&env);
+    let amount: i128 = 1000;
+    let note = String::from_str(&env, "Transaction to delete");
+
+    let tx_id = client.create_transaction(&from, &to, &amount, &note, &Vec::new(&env));
+
+    let caller = Address::generate(&env);
+    client.delete_transaction(&caller, &tx_id);
+    let all_txs = client.get_all_transactions();
+    assert_eq!(all_txs.len(), 0);
+}
+
+#[test]
+fn test_get_transactions_paginated_basic() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let contract_id = env.register(TransactionsContract, ());
+    let client = TransactionsContractClient::new(&env, &contract_id);
+    client.initialize(&admin);
+
+    let from = Address::generate(&env);
+    let to = Address::generate(&env);
+    let note = String::from_str(&env, "tx");
+    let memo = String::from_str(&env, "memo");
+
+    for _ in 0..5 {
+        client.create_transaction(&from, &to, &100, &note, &memo, &Vec::new(&env));
+    }
+
+    // fetch all 5
+    let page = client.get_transactions_paginated(&0, &10);
+    assert_eq!(page.len(), 5);
+}
+
+#[test]
+fn test_get_transactions_paginated_offset_and_limit() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let contract_id = env.register(TransactionsContract, ());
+    let client = TransactionsContractClient::new(&env, &contract_id);
+    client.initialize(&admin);
+
+    let from = Address::generate(&env);
+    let to = Address::generate(&env);
+    let note = String::from_str(&env, "tx");
+    let memo = String::from_str(&env, "memo");
+
+    for i in 1_i128..=10 {
+        client.create_transaction(&from, &to, &(i * 10), &note, &memo, &Vec::new(&env));
+    }
+
+    // page 1: offset=0, limit=3 → first 3
+    let page1 = client.get_transactions_paginated(&0, &3);
+    assert_eq!(page1.len(), 3);
+    assert_eq!(page1.get(0).unwrap().amount, 10);
+    assert_eq!(page1.get(2).unwrap().amount, 30);
+
+    // page 2: offset=3, limit=3 → next 3
+    let page2 = client.get_transactions_paginated(&3, &3);
+    assert_eq!(page2.len(), 3);
+    assert_eq!(page2.get(0).unwrap().amount, 40);
+
+    // last page: offset=9, limit=5 → only 1 remaining
+    let last = client.get_transactions_paginated(&9, &5);
+    assert_eq!(last.len(), 1);
+    assert_eq!(last.get(0).unwrap().amount, 100);
+}
+
+#[test]
+fn test_get_transactions_paginated_offset_beyond_total() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let contract_id = env.register(TransactionsContract, ());
+    let client = TransactionsContractClient::new(&env, &contract_id);
+    client.initialize(&admin);
+
+    let from = Address::generate(&env);
+    let to = Address::generate(&env);
+    let note = String::from_str(&env, "tx");
+    let memo = String::from_str(&env, "memo");
+    client.create_transaction(&from, &to, &100, &note, &memo, &Vec::new(&env));
+
+    let page = client.get_transactions_paginated(&10, &5);
+    assert_eq!(page.len(), 0);
+}
+
+#[test]
+fn test_get_transactions_paginated_limit_zero() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let contract_id = env.register(TransactionsContract, ());
+    let client = TransactionsContractClient::new(&env, &contract_id);
+    client.initialize(&admin);
+
+    let from = Address::generate(&env);
+    let to = Address::generate(&env);
+    let note = String::from_str(&env, "tx");
+    let memo = String::from_str(&env, "memo");
+    client.create_transaction(&from, &to, &100, &note, &memo, &Vec::new(&env));
+
+    let page = client.get_transactions_paginated(&0, &0);
+    assert_eq!(page.len(), 0);
+}
+
+#[test]
+fn test_get_transactions_paginated_limit_capped_at_100() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let contract_id = env.register(TransactionsContract, ());
+    let client = TransactionsContractClient::new(&env, &contract_id);
+    client.initialize(&admin);
+
+    let from = Address::generate(&env);
+    let to = Address::generate(&env);
+    let note = String::from_str(&env, "tx");
+    let memo = String::from_str(&env, "memo");
+
+    for _ in 0..120 {
+        client.create_transaction(&from, &to, &1, &note, &memo, &Vec::new(&env));
+    }
+
+    // requesting 200 should be capped to 100
+    let page = client.get_transactions_paginated(&0, &200);
+    assert_eq!(page.len(), 100);
 }

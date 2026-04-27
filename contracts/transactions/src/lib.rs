@@ -6,11 +6,13 @@ use soroban_sdk::{
 };
 
 mod storage;
+mod utils;
 
 pub use storage::{
     create_transaction, get_transaction, get_transaction_timestamp, get_user_transactions,
     clear_user_transactions, transaction_exists, get_last_transaction, get_total_transactions_count, 
-    update_transaction_status, is_transaction_owner, get_transaction_memo, Transaction, TransactionStatus,
+    update_transaction_status, is_transaction_owner, get_transaction_memo, get_all_transactions,
+    get_transactions_paginated,
 };
 
 #[cfg(test)]
@@ -27,7 +29,10 @@ pub enum TransactionError {
     InvalidAmount = 5,
     InvalidId = 6,
     TransactionLimitReached = 7,
+    InvalidNoteLength = 8,
 }
+
+const MAX_NOTE_LENGTH: usize = 256;
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -67,8 +72,16 @@ impl TransactionsContract {
     ) -> Symbol {
         from.require_auth();
         
-        if amount <= 0 {
+        if amount < storage::MIN_TRANSACTION_AMOUNT {
             panic_with_error!(&env, TransactionError::InvalidAmount);
+        }
+        
+        if amount > storage::MAX_TRANSACTION_AMOUNT {
+            panic_with_error!(&env, TransactionError::InvalidAmount);
+        }
+
+        if note.len() > MAX_NOTE_LENGTH {
+            panic_with_error!(&env, TransactionError::InvalidNoteLength);
         }
         
         let transaction = create_transaction(&env, from.clone(), to, amount, note, memo, tags);
@@ -91,6 +104,10 @@ impl TransactionsContract {
     pub fn update_transaction_note(env: Env, id: Symbol, caller: Address, note: String) -> bool {
         caller.require_auth();
         
+        if note.len() > MAX_NOTE_LENGTH {
+            panic_with_error!(&env, TransactionError::InvalidNoteLength);
+        }
+
         if !transaction_exists(&env, id.clone()) {
             panic_with_error!(&env, TransactionError::TransactionNotFound);
         }
@@ -111,7 +128,7 @@ impl TransactionsContract {
     pub fn update_transaction_amount(env: Env, id: Symbol, caller: Address, amount: i128) -> bool {
         caller.require_auth();
         
-        if amount <= 0 {
+        if amount < storage::MIN_TRANSACTION_AMOUNT || amount > storage::MAX_TRANSACTION_AMOUNT {
             panic_with_error!(&env, TransactionError::InvalidAmount);
         }
         
@@ -146,6 +163,11 @@ impl TransactionsContract {
         get_user_transactions(&env, user)
     }
     
+    /// Get all transactions for a user (alias for get_user_transactions)
+    pub fn get_transactions_by_user(env: Env, user: Address) -> Vec<Transaction> {
+        get_user_transactions(&env, user)
+    }
+    
     /// Get the last (most recent) transaction for a user
     pub fn get_last_transaction(env: Env, user: Address) -> Option<Transaction> {
         get_last_transaction(&env, user)
@@ -154,6 +176,19 @@ impl TransactionsContract {
     /// Get the total number of transactions recorded in the contract
     pub fn get_total_transactions_count(env: Env) -> u64 {
         get_total_transactions_count(&env)
+    }
+    
+    /// Get all transactions in the contract
+    pub fn get_all_transactions(env: Env) -> Vec<Transaction> {
+        get_all_transactions(&env)
+    }
+    
+    /// Get a paginated subset of all transactions.
+    ///
+    /// - `offset`: number of transactions to skip (0-based)
+    /// - `limit`:  maximum number of transactions to return (capped at 100)
+    pub fn get_transactions_paginated(env: Env, offset: u32, limit: u32) -> Vec<Transaction> {
+        get_transactions_paginated(&env, offset, limit)
     }
     
     /// Clear all transactions for a user (only user can perform this action)
@@ -183,6 +218,24 @@ impl TransactionsContract {
     }
 
     /// Update the status of a transaction (only owner/admin allowed)
+    pub fn delete_transaction(env: Env, caller: Address, id: Symbol) -> bool {
+        caller.require_auth();
+        Self::require_admin(&env, &caller);
+
+        if !transaction_exists(&env, id.clone()) {
+            panic_with_error!(&env, TransactionError::TransactionNotFound);
+        }
+
+        let success = storage::delete_transaction(&env, id.clone());
+        if success {
+            env.events().publish(
+                (symbol_short!("tx"), symbol_short!("deleted")),
+                id.clone(),
+            );
+        }
+        success
+    }
+
     pub fn update_transaction_status(env: Env, id: Symbol, caller: Address, status: TransactionStatus) -> bool {
         caller.require_auth();
         

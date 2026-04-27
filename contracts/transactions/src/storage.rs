@@ -11,6 +11,8 @@ pub enum TransactionStatus {
 }
 
 pub const MAX_TRANSACTIONS_PER_USER: u32 = 1000;
+pub const MIN_TRANSACTION_AMOUNT: i128 = 1; // Minimum 1 unit
+pub const MAX_TRANSACTION_AMOUNT: i128 = 1_000_000_000_000; // Maximum 1 trillion units
 
 #[derive(Clone)]
 #[contracttype]
@@ -35,6 +37,8 @@ pub enum DataKey {
     Transaction(Symbol),
     /// User's transaction list (user address -> vector of transaction IDs)
     UserTransactions(Address),
+    /// Global list of all transaction IDs
+    AllTransactions,
     /// Transaction counter for generating unique IDs
     TransactionCounter,
 }
@@ -49,38 +53,7 @@ pub fn create_transaction(
     memo: String,
     tags: Vec<String>,
 ) -> Transaction {
-    let mut counter: u64 = env
-        .storage()
-        .persistent()
-        .get(&DataKey::TransactionCounter)
-        .unwrap_or(0);
-    
-    counter += 1;
-    // Create a unique symbol using the counter as a string
-    let counter_str = if counter == 1 {
-        "1"
-    } else if counter == 2 {
-        "2"
-    } else if counter == 3 {
-        "3"
-    } else if counter == 4 {
-        "4"
-    } else if counter == 5 {
-        "5"
-    } else if counter == 6 {
-        "6"
-    } else if counter == 7 {
-        "7"
-    } else if counter == 8 {
-        "8"
-    } else if counter == 9 {
-        "9"
-    } else if counter == 10 {
-        "10"
-    } else {
-        "tx" // fallback for larger numbers
-    };
-    let tx_id = Symbol::new(&env, counter_str);
+    let tx_id = crate::utils::generate_transaction_id(env);
     
     let mut user_txs: Vec<Symbol> = env
         .storage()
@@ -101,7 +74,7 @@ pub fn create_transaction(
         memo: memo.clone(),
         tags: tags.clone(),
         timestamp: env.ledger().timestamp(),
-        status: TransactionStatus::Pending,
+        status: TransactionStatus::Completed,
     };
     
     // Store the transaction
@@ -109,10 +82,16 @@ pub fn create_transaction(
         .persistent()
         .set(&DataKey::Transaction(tx_id.clone()), &transaction);
     
-    // Update transaction counter
+    // Add to global transaction list
+    let mut all_txs: Vec<Symbol> = env
+        .storage()
+        .persistent()
+        .get(&DataKey::AllTransactions)
+        .unwrap_or_else(|| Vec::new(env));
+    all_txs.push_back(tx_id.clone());
     env.storage()
         .persistent()
-        .set(&DataKey::TransactionCounter, &counter);
+        .set(&DataKey::AllTransactions, &all_txs);
     
     // Add to user's transaction list
     user_txs.push_back(tx_id.clone());
@@ -137,7 +116,7 @@ pub fn update_transaction_amount(env: &Env, id: Symbol, caller: Address, new_amo
         return false;
     }
     
-    if new_amount <= 0 {
+    if new_amount < MIN_TRANSACTION_AMOUNT || new_amount > MAX_TRANSACTION_AMOUNT {
         return false;
     }
     
@@ -241,12 +220,36 @@ pub fn clear_user_transactions(env: &Env, user: Address) -> bool {
         .get(&DataKey::UserTransactions(user.clone()))
         .unwrap_or_else(|| Vec::new(env));
     
-    // Remove all transactions
-    for tx_id in tx_ids.iter() {
-        env.storage()
-            .persistent()
-            .remove(&DataKey::Transaction(tx_id));
+    // Get current all transactions
+    let mut all_txs: Vec<Symbol> = env
+        .storage()
+        .persistent()
+        .get(&DataKey::AllTransactions)
+        .unwrap_or_else(|| Vec::new(env));
+    
+    // Remove all transactions and filter out from all_txs
+    let mut new_all_txs = Vec::new(env);
+    for all_tx_id in all_txs.iter() {
+        let mut keep = true;
+        for user_tx_id in tx_ids.iter() {
+            if all_tx_id == user_tx_id {
+                // Remove the transaction
+                env.storage()
+                    .persistent()
+                    .remove(&DataKey::Transaction(user_tx_id));
+                keep = false;
+                break;
+            }
+        }
+        if keep {
+            new_all_txs.push_back(all_tx_id);
+        }
     }
+    
+    // Update the global list
+    env.storage()
+        .persistent()
+        .set(&DataKey::AllTransactions, &new_all_txs);
     
     // Clear user's transaction list
     env.storage()
@@ -280,10 +283,12 @@ pub fn get_last_transaction(env: &Env, user: Address) -> Option<Transaction> {
 
 /// Get the total number of transactions recorded in the contract
 pub fn get_total_transactions_count(env: &Env) -> u64 {
-    env.storage()
+    let all_txs: Vec<Symbol> = env
+        .storage()
         .persistent()
-        .get(&DataKey::TransactionCounter)
-        .unwrap_or(0)
+        .get(&DataKey::AllTransactions)
+        .unwrap_or_else(|| Vec::new(env));
+    all_txs.len() as u64
 }
 
 /// Check if a transaction exists
@@ -300,7 +305,95 @@ pub fn is_transaction_owner(env: &Env, id: Symbol, user: Address) -> bool {
     }
 }
 
+/// Delete a transaction record and remove it from the user's transaction list.
+pub fn delete_transaction(env: &Env, id: Symbol) -> bool {
+    let transaction: Transaction = match env
+        .storage()
+        .persistent()
+        .get(&DataKey::Transaction(id.clone())) {
+        Some(tx) => tx,
+        None => return false,
+    };
+
+    let owner = transaction.from.clone();
+
+    env.storage()
+        .persistent()
+        .remove(&DataKey::Transaction(id.clone()));
+
+    let tx_ids: Vec<Symbol> = env
+        .storage()
+        .persistent()
+        .get(&DataKey::UserTransactions(owner.clone()))
+        .unwrap_or_else(|| Vec::new(env));
+
+    let mut remaining: Vec<Symbol> = Vec::new(env);
+    for tx_id in tx_ids.iter() {
+        if tx_id != id {
+            remaining.push_back(tx_id.clone());
+        }
+    }
+
+    if remaining.is_empty() {
+        env.storage().persistent().remove(&DataKey::UserTransactions(owner));
+    } else {
+        env.storage().persistent().set(&DataKey::UserTransactions(owner), &remaining);
+    }
+
+    true
+}
+
 /// Get transaction memo
 pub fn get_transaction_memo(env: &Env, id: Symbol) -> Option<String> {
     get_transaction(env, id).map(|tx| tx.memo)
+}
+
+/// Get all transactions in the contract
+pub fn get_all_transactions(env: &Env) -> Vec<Transaction> {
+    let tx_ids: Vec<Symbol> = env
+        .storage()
+        .persistent()
+        .get(&DataKey::AllTransactions)
+        .unwrap_or_else(|| Vec::new(env));
+    
+    let mut transactions = Vec::new(env);
+    for tx_id in tx_ids.iter() {
+        if let Some(tx) = get_transaction(env, tx_id) {
+            transactions.push_back(tx);
+        }
+    }
+    
+    transactions
+}
+
+/// Get a paginated subset of all transactions.
+///
+/// - `offset`: number of transactions to skip (0-based)
+/// - `limit`:  maximum number of transactions to return (capped at 100)
+pub fn get_transactions_paginated(env: &Env, offset: u32, limit: u32) -> Vec<Transaction> {
+    let limit = limit.min(100);
+    let tx_ids: Vec<Symbol> = env
+        .storage()
+        .persistent()
+        .get(&DataKey::AllTransactions)
+        .unwrap_or_else(|| Vec::new(env));
+
+    let mut transactions = Vec::new(env);
+    let total = tx_ids.len();
+
+    if offset >= total || limit == 0 {
+        return transactions;
+    }
+
+    let end = (offset + limit).min(total);
+
+    for i in offset..end {
+        if let Some(tx_id) = tx_ids.get(i) {
+            if let Some(tx) = get_transaction(env, tx_id) {
+                transactions.push_back(tx);
+            }
+        }
+    }
+
+    transactions
 }

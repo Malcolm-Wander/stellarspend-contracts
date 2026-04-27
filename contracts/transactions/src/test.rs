@@ -1,7 +1,7 @@
 ﻿use soroban_sdk::{
     testutils::Address as _, Address, Env, Symbol, String, Vec,
 };
-use crate::{TransactionsContract, TransactionsContractClient, TransactionError, Transaction};
+use crate::{TransactionsContract, TransactionsContractClient, TransactionError, Transaction, TransactionStatus};
 
 #[test]
 fn test_initialize_and_get_admin() {
@@ -58,6 +58,7 @@ fn test_create_transaction() {
     assert_eq!(transaction.tags.get(0), Some(String::from_str(&env, "groceries")));
     assert_eq!(transaction.tags.get(1), Some(String::from_str(&env, "monthly")));
     assert!(transaction.timestamp > 0);
+    assert_eq!(transaction.status, crate::TransactionStatus::Completed);
 }
 
 #[test]
@@ -343,6 +344,7 @@ fn test_get_transaction_memo_nonexistent() {
 
 #[test]
 fn test_delete_transaction_admin_can_remove_record() {
+fn test_get_all_transactions() {
     let env = Env::default();
     let admin = Address::generate(&env);
     let contract_id = env.register(TransactionsContract, ());
@@ -369,6 +371,27 @@ fn test_delete_transaction_admin_can_remove_record() {
 #[test]
 #[should_panic]
 fn test_delete_transaction_rejects_non_admin() {
+    let user1 = Address::generate(&env);
+    let user2 = Address::generate(&env);
+    let recipient = Address::generate(&env);
+
+    // Create some transactions
+    let tx1_id = client.create_transaction(&user1, &recipient, &1000, &String::from_str(&env, "Transaction 1"), &Vec::new(&env));
+    let tx2_id = client.create_transaction(&user2, &recipient, &2000, &String::from_str(&env, "Transaction 2"), &Vec::new(&env));
+    let tx3_id = client.create_transaction(&user1, &recipient, &3000, &String::from_str(&env, "Transaction 3"), &Vec::new(&env));
+
+    let all_txs = client.get_all_transactions();
+    assert_eq!(all_txs.len(), 3);
+
+    // Check that all transactions are present
+    let ids: Vec<Symbol> = all_txs.iter().map(|tx| tx.id.clone()).collect();
+    assert!(ids.contains(&tx1_id));
+    assert!(ids.contains(&tx2_id));
+    assert!(ids.contains(&tx3_id));
+}
+
+#[test]
+fn test_get_all_transactions_empty() {
     let env = Env::default();
     let admin = Address::generate(&env);
     let contract_id = env.register(TransactionsContract, ());
@@ -385,4 +408,6 @@ fn test_delete_transaction_rejects_non_admin() {
 
     let caller = Address::generate(&env);
     client.delete_transaction(&caller, &tx_id);
+    let all_txs = client.get_all_transactions();
+    assert_eq!(all_txs.len(), 0);
 }

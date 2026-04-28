@@ -1,4 +1,4 @@
-use soroban_sdk::{contracttype, Address, Env, Map, String, Vec, String};
+use soroban_sdk::{contracttype, Address, Env, Map, String, Vec};
 
 #[derive(Clone)]
 #[contracttype]
@@ -9,8 +9,6 @@ pub enum DataKey {
     UserCount,
     /// Default currency preference for a user
     DefaultCurrency(Address),
-    /// Active status for a user
-    UserActive(Address),
     /// User activity status (user address -> bool)
     UserActive(Address),
     /// User currency preference (user address -> String)

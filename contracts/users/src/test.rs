@@ -1,5 +1,5 @@
-use soroban_sdk::{testutils::Address as _, Address, Env, String, Vec, String};
-use crate::{UsersContract, UsersContractClient, UserError};
+use soroban_sdk::{testutils::Address as _, Address, Env, String, Vec};
+use crate::{UsersContract, UsersContractClient};
 
 #[test]
 fn test_initialize_and_get_admin() {
@@ -230,7 +230,7 @@ fn test_multiple_unique_users() {
     let mut users = Vec::new(&env);
     
     // Create and register 10 unique users
-    for i in 0..10 {
+    for _ in 0..10 {
         let user = Address::generate(&env);
         users.push_back(user.clone());
         client.register_user(&user);

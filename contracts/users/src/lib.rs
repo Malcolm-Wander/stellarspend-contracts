@@ -175,6 +175,42 @@ impl UsersContract {
         is_user_active(&env, user)
     }
 
+    /// Update user profile data (currency, status, etc.)
+    pub fn update_user_profile(
+        env: Env,
+        user: Address,
+        new_currency: Option<String>,
+        is_active: Option<bool>,
+    ) -> bool {
+        user.require_auth();
+
+        if !user_exists(&env, user.clone()) {
+            panic_with_error!(&env, UserError::UserNotFound);
+        }
+
+        let mut updated = false;
+
+        if let Some(currency) = new_currency {
+            set_user_currency(&env, user.clone(), currency.clone());
+            set_default_currency(&env, user.clone(), currency);
+            updated = true;
+        }
+
+        if let Some(active) = is_active {
+            set_user_active_status(&env, user.clone(), active);
+            updated = true;
+        }
+
+        if updated {
+            env.events().publish(
+                (symbol_short!("users"), symbol_short!("profile")),
+                user,
+            );
+        }
+
+        updated
+    }
+
     /// Get the admin address
     pub fn get_admin(env: Env) -> Option<Address> {
         env.storage().instance().get(&DataKey::Admin)

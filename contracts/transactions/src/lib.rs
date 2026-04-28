@@ -70,6 +70,7 @@ impl TransactionsContract {
         note: String,
         memo: String,
         tags: Vec<String>,
+        tx_type: Symbol,
     ) -> Symbol {
         from.require_auth();
         
@@ -91,7 +92,7 @@ impl TransactionsContract {
         }
 
         
-        let transaction = create_transaction(&env, from.clone(), to, amount, note, memo, tags);
+        let transaction = create_transaction(&env, from.clone(), to, amount, note, memo, tags, tx_type);
         
         env.events().publish(
             (symbol_short!("tx"), symbol_short!("created")),
@@ -174,6 +175,27 @@ impl TransactionsContract {
     pub fn get_transactions_by_user(env: Env, user: Address) -> Vec<Transaction> {
         get_user_transactions(&env, user)
     }
+
+    /// Get all transactions for a user, sorted by timestamp (descending)
+    pub fn get_user_transactions_sorted(env: Env, user: Address) -> Vec<Transaction> {
+        let mut transactions = get_user_transactions(&env, user);
+        
+        // Simple bubble sort for demonstration (on-chain sorting can be expensive)
+        let n = transactions.len();
+        if n > 1 {
+            for i in 0..n {
+                for j in 0..n - i - 1 {
+                    let tx_j = transactions.get(j).unwrap();
+                    let tx_next = transactions.get(j + 1).unwrap();
+                    if tx_j.timestamp < tx_next.timestamp {
+                        transactions.set(j, tx_next);
+                        transactions.set(j + 1, tx_j);
+                    }
+                }
+            }
+        }
+        transactions
+    }
     
     /// Get the last (most recent) transaction for a user
     pub fn get_last_transaction(env: Env, user: Address) -> Option<Transaction> {
@@ -224,13 +246,18 @@ impl TransactionsContract {
         transaction_exists(&env, id)
     }
 
-    /// Update the status of a transaction (only owner/admin allowed)
+    /// Delete a transaction (only owner or admin allowed)
     pub fn delete_transaction(env: Env, caller: Address, id: Symbol) -> bool {
         caller.require_auth();
-        Self::require_admin(&env, &caller);
 
         if !transaction_exists(&env, id.clone()) {
             panic_with_error!(&env, TransactionError::TransactionNotFound);
+        }
+
+        // Allow if caller is owner or admin
+        let is_owner = is_transaction_owner(&env, id.clone(), caller.clone());
+        if !is_owner {
+            Self::require_admin(&env, &caller);
         }
 
         let success = storage::delete_transaction(&env, id.clone());

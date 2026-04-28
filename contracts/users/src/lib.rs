@@ -2,7 +2,7 @@
 
 use soroban_sdk::{
     contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, Address,
-    Env, String, Vec, String,
+    Env, String, Vec,
 };
 
 mod storage;
@@ -10,8 +10,8 @@ mod storage;
 pub use storage::{
     
     add_user, deactivate_user as storage_deactivate_user, get_all_users, get_default_currency,
-    get_user_count, is_user_active, reset_user_data, set_default_currency, user_exists,
-,
+    get_user_count as storage_get_user_count, is_user_active, reset_user_data,
+    set_default_currency, user_exists,
     get_user_active_status, set_user_active_status,
     get_user_currency, set_user_currency,
     get_user_last_login, set_user_last_login,
@@ -95,8 +95,13 @@ impl UsersContract {
     }
 
     /// Return the total count of registered users.
+    pub fn get_user_count(env: Env) -> u64 {
+        storage_get_user_count(&env)
+    }
+
+    /// Return the total count of registered users.
     pub fn get_all_users_count(env: Env) -> u64 {
-        get_user_count(&env)
+        storage_get_user_count(&env)
     }
 
     /// Return `true` if the given address has been registered.
@@ -315,5 +320,23 @@ mod check_user_exists_tests {
 
         // Timestamp present after registration
         assert!(client.get_user_last_login(&user).is_some());
+    }
+
+    #[test]
+    fn get_user_count_returns_registered_user_total() {
+        let (env, _admin, client) = setup();
+        let first_user = Address::generate(&env);
+        let second_user = Address::generate(&env);
+
+        assert_eq!(client.get_user_count(), 0);
+
+        client.register_user(&first_user);
+        assert_eq!(client.get_user_count(), 1);
+
+        client.register_user(&second_user);
+        assert_eq!(client.get_user_count(), 2);
+
+        client.register_user(&first_user);
+        assert_eq!(client.get_user_count(), 2);
     }
 }

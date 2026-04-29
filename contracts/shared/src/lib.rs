@@ -6,6 +6,7 @@ pub mod utils;
 pub mod errors;
 
 pub use errors::SharedError;
+pub use utils::ValidationError;
 
 pub const SHARED_VERSION: &str = "0.1.0";
 
